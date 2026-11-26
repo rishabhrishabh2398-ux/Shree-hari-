@@ -513,7 +513,17 @@ dialog.palette .dw{max-height:72vh}
 </style>
 </head>
 <body>
-<div class="app">
+<div id="lock" style="position:fixed;inset:0;z-index:5000;background:var(--page);display:flex;align-items:center;justify-content:center;padding:16px">
+  <form id="lock-form" class="card" style="max-width:360px;width:100%;box-shadow:var(--shadow-lg)" autocomplete="off">
+    <h2 style="margin:0 0 4px;font-size:18px">Flow Dashboard</h2>
+    <p class="small muted" style="margin:0 0 14px">This keeps casual visitors out. It is not strong security — anyone who can view this page's source can read it. Keep the link and password to your team only.</p>
+    <label class="fld" for="lock-pw">Password</label>
+    <input class="inp" id="lock-pw" type="password" autocomplete="current-password" required>
+    <div class="err" id="lock-err"></div>
+    <button type="submit" class="btn pri full" style="margin-top:14px">Unlock</button>
+  </form>
+</div>
+<div class="app" id="app-root" style="display:none">
   <aside class="side" aria-label="Main navigation">
     <div class="logo"><span class="mk" aria-hidden="true">F</span><div><b>Flow</b><span>Dealer dashboard</span></div></div>
     <nav id="sidenav" aria-label="Sections"></nav>
@@ -797,6 +807,16 @@ const SALES = salesSample();
 const TALLY_KEY = "flow-tally-real";
 let TD = null;
 function tdLoad(){ try { const s = localStorage.getItem(TALLY_KEY); TD = s ? JSON.parse(s) : null; } catch(e){ TD = null; } }
+async function tdLoadSnapshot(){
+  if (TD) return; // a real export already loaded on this device takes priority
+  try {
+    const r = await fetch("tally-snapshot.json", { cache: "no-store" });
+    if (!r.ok) return;
+    const snap = await r.json();
+    TD = { snapshot: true, data: snap };
+    renderView();
+  } catch(e){}
+}
 function tdSave(){ try { localStorage.setItem(TALLY_KEY, JSON.stringify(TD)); } catch(e){ toast("This browser couldn't store that much data.", { icon:"alert" }); } }
 const tField = (n, sel) => { if (!n) return ""; let cur = n; for (const p of sel.split("/")){ cur = [...cur.children].find(c => c.tagName === p); if (!cur) return ""; } return cur.textContent.trim(); };
 const tNum = s => { const m = String(s || "").replace(/,/g, "").match(/-?\d+(\.\d+)?/); return m ? +m[0] : 0; };
@@ -843,7 +863,7 @@ function tAbsorb(doc, data){
   return got;
 }
 async function tdLoadFiles(fileList){
-  if (!TD) TD = {};
+  if (!TD || TD.snapshot) TD = {}; // a published snapshot is replaced, not merged into, by a real load
   const msgs = [];
   for (const f of fileList){ try { const got = tAbsorb(tParseXml(await f.text()), TD); msgs.push(`${f.name}: ${got.join(", ") || "nothing recognised"}`); } catch(err){ msgs.push(`${f.name}: ${err.message}`); } }
   TD.loadedAt = new Date().toISOString(); tdSave();
@@ -1097,7 +1117,7 @@ function ovOwner(){
   const pend = S.reqs.filter(r => r.status === "Pending");
   const top = P.filter(c => c.due).sort((a,b) => b.due - a.due).slice(0, 6);
   return `<div class="grid">
-    ${TD ? `<section class="card c12"><div class="banner info">${ic("tally")}<div class="small">Real Tally data is loaded (as of ${relD(TD.loadedAt)}). The numbers below this line are still <b>sample data</b> — see the real customers, stock and dues on <button type="button" class="lnk sm" data-go="tallydata">the Tally data tab</button>.</div></div></section>` : ""}
+    ${TD ? `<section class="card c12"><div class="banner info">${ic("tally")}<div class="small">Real Tally data is available (${TD.snapshot ? "a published snapshot" : "loaded " + relD(TD.loadedAt)}). The numbers below this line are still <b>sample data</b> — see the real figures on <button type="button" class="lnk sm" data-go="tallydata">the Tally data tab</button>.</div></div></section>` : ""}
     ${kpi("Sales today", inr(t[29].sales), `${SALES.invoices} bills · ${delta(ch)} vs yesterday (so far)`)}
     ${kpi("Sales this month", inr(SALES.month), `${pct.toFixed(0)}% of ${inr(SALES.target)} target`, meter(pct, false, `${pct.toFixed(0)}% of monthly target`))}
     ${kpi("Money to collect", inr(due), old ? pill(`${inr(old)} over 90 days`, "crit") : "Nothing over 90 days", "", "parties", "chev")}
@@ -1529,6 +1549,7 @@ function vTallyData(){
     </section></div>`;
     return;
   }
+  if (TD.snapshot) return vTallySnapshot();
   const P = TD.parties || [], I = TD.items || [], B = TD.bills || [], V = (TD.vouchers || []).filter(v => !v.cancelled && !v.optional);
   const debtors = P.filter(p => p.due > 0), due = debtors.reduce((a,p) => a + p.due, 0);
   const old = B.filter(b => b.overdue > 90), oldAmt = old.reduce((a,b) => a + b.amount, 0);
@@ -1549,6 +1570,24 @@ function vTallyData(){
   </div>`;
   hbars($("td-dues"), debtors.sort((a,b) => b.due - a.due).slice(0, 10).map(p => ({ k: esc(p.name), label: p.name, v: p.due })));
   renderTdPending(V, I); renderTdTable();
+}
+function vTallySnapshot(){
+  const d = TD.data;
+  view.innerHTML = `<div class="grid">
+    <section class="card c12"><div class="banner info">${ic("tally")}<div class="small"><b>Real Tally data</b> — ${esc(d.source)}. ${esc(d.note)}
+      <label class="lnk sm filebtn" style="display:inline">Load your own files for more<input type="file" id="td-file" accept=".xml,text/xml" multiple class="sr"></label></div></div></section>
+    ${kpi("Total sales in this period", inr(d.totalSalesAmt), `${d.totalSalesCount} bills · ${d.voucherTotal} vouchers total`)}
+    ${kpi("Racold Sales", inr((d.byType.find(t => t.type === "Racold Sales") || {}).amt || 0), "voucher type")}
+    ${kpi("Ultratech Sales", inr((d.byType.find(t => t.type === "Ultratech Sales") || {}).amt || 0), "voucher type")}
+    ${kpi("Customer dues / stock value", "Not in this snapshot", "load your own export for this")}
+    <section class="card c5"><div class="ch"><h2>Sales by voucher type</h2></div><div id="td-dues"></div></section>
+    <section class="card c7"><div class="ch"><h2>Top customers <small>· by sales amount in this period</small></h2></div><div id="td-pending"></div></section>
+    <section class="card c12"><div class="ch"><h2>Top-selling items <small>· by sales amount in this period</small></h2></div>
+      ${tbl([["Item","main"],["Sales amount","n"]], d.topItems.map(i => ({ cells: [esc(i.name), `<b>${inr(i.amt)}</b>`] })), empty("No items", "", "box"))}
+    </section>
+  </div>`;
+  hbars($("td-dues"), d.byType.filter(t => t.amt > 0).map(t => ({ k: esc(t.type), label: t.type, v: t.amt })));
+  $("td-pending").innerHTML = tbl([["Customer","main"],["Sales amount","n"]], d.topCustomers.map(c => ({ cells: [esc(c.name), `<b>${inr(c.amt)}</b>`] })), empty("No customers", "", "users"));
 }
 function renderTdPending(V, I){
   const stock = new Map(I.map(i => [i.name, i.qty])), ord = new Map();
@@ -1932,12 +1971,38 @@ addEventListener("resize", () => { clearTimeout(rzT); rzT = setTimeout(() => { i
 function applyTheme(){ const r = document.documentElement; if (theme === "light" || theme === "dark") r.setAttribute("data-theme", theme); else r.removeAttribute("data-theme"); }
 
 // ===================== START =====================
-document.querySelectorAll("[data-ic]").forEach(el => el.outerHTML = ic(el.dataset.ic));
-load(); tdLoad();
-{ const t = lsGet("flow-theme"); if (t === "light" || t === "dark") theme = t; applyTheme(); }
-{ const r = lsGet("flow-role"); if (r && ROLES.some(x => x[0] === r)) role = r; }
-{ const t = lsGet("flow-tab"); tab = t && TABS.some(x => x[0] === t) ? t : HOME[base()]; }
-renderAll();
+function startApp(){
+  document.querySelectorAll("[data-ic]").forEach(el => el.outerHTML = ic(el.dataset.ic));
+  load(); tdLoad(); tdLoadSnapshot();
+  { const t = lsGet("flow-theme"); if (t === "light" || t === "dark") theme = t; applyTheme(); }
+  { const r = lsGet("flow-role"); if (r && ROLES.some(x => x[0] === r)) role = r; }
+  { const t = lsGet("flow-tab"); tab = t && TABS.some(x => x[0] === t) ? t : HOME[base()]; }
+  renderAll();
+}
+
+// ===================== LOCK SCREEN =====================
+// A simple gate, not real security: the hash below is checked in this page's own
+// JavaScript, so anyone who reads the page's source can see exactly how to bypass it.
+// It only keeps a casual visitor with the link from seeing the numbers.
+const LOCK_HASH = "599206764eb40f0cbe8680b530410231b73fe76c83a6853526c49f556d14d709";
+const LOCK_KEY = "flow-unlocked";
+async function sha256Hex(text){
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, "0")).join("");
+}
+function showApp(){ $("lock").remove(); const a = $("app-root"); a.style.display = ""; startApp(); }
+(function initLock(){
+  let unlocked = false; try { unlocked = sessionStorage.getItem(LOCK_KEY) === "1"; } catch(e){}
+  if (unlocked) return showApp();
+  const form = $("lock-form"), pw = $("lock-pw"), err = $("lock-err");
+  pw.focus();
+  form.addEventListener("submit", async e => {
+    e.preventDefault();
+    const ok = (await sha256Hex(pw.value)) === LOCK_HASH;
+    if (ok){ try { sessionStorage.setItem(LOCK_KEY, "1"); } catch(ex){} showApp(); }
+    else { err.textContent = "Wrong password."; pw.value = ""; pw.focus(); }
+  });
+})();
 </script>
 </body>
 </html>
