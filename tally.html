@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Tally Data</title>
+<style>
+:root{color-scheme:light;--page:#f9f9f7;--surface:#fcfcfb;--ink:#0b0b0b;--ink2:#52514e;--muted:#898781;--grid:#e1e0d9;--ring:rgba(11,11,11,.1);--s1:#2a78d6;--good:#0ca30c;--warn:#fab219;--crit:#d03b3b;--chip:#f0efec}
+@media (prefers-color-scheme: dark){:root:where(:not([data-theme="light"])){color-scheme:dark;--page:#0d0d0d;--surface:#1a1a19;--ink:#f0efec;--ink2:#c3c2b7;--grid:#2c2c2a;--ring:rgba(255,255,255,.1);--s1:#3987e5;--chip:#262624}}
+:root[data-theme="dark"]{color-scheme:dark;--page:#0d0d0d;--surface:#1a1a19;--ink:#f0efec;--ink2:#c3c2b7;--grid:#2c2c2a;--ring:rgba(255,255,255,.1);--s1:#3987e5;--chip:#262624}
+*{box-sizing:border-box} html,body{overflow-x:hidden}
+body{margin:0;background:var(--page);color:var(--ink);font:15px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:1200px;margin:0 auto;padding:16px}
+h1{font-size:20px;margin:0} h2{font-size:14px;margin:0 0 10px;color:var(--ink2)}
+.grid{display:grid;gap:12px;grid-template-columns:repeat(12,minmax(0,1fr));margin-top:12px}
+.card{background:var(--surface);border:1px solid var(--ring);border-radius:12px;padding:14px;min-width:0}
+.c3{grid-column:span 3}.c4{grid-column:span 4}.c6{grid-column:span 6}.c8{grid-column:span 8}.c12{grid-column:span 12}
+@media (max-width:900px){.c3{grid-column:span 6}.c4,.c6,.c8{grid-column:span 12}}
+@media (max-width:520px){.c3{grid-column:span 12}}
+.v{font-size:24px;font-weight:700}.d{font-size:13px;color:var(--ink2)}
+button,.btn{font:inherit;font-size:14px;padding:8px 12px;border-radius:8px;border:1px solid var(--ring);background:var(--surface);color:var(--ink);cursor:pointer}
+button.primary{background:var(--s1);border-color:var(--s1);color:#fff}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+table{width:100%;border-collapse:collapse;font-size:14px} th,td{padding:7px 6px;border-bottom:1px solid var(--grid);text-align:left;vertical-align:top}
+th{font-size:12px;color:var(--muted)} td.n,th.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.scroll{overflow-x:auto;max-height:480px;overflow-y:auto}
+.st{display:inline-flex;align-items:center;gap:5px;font-size:12px;white-space:nowrap}.st::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--c)}
+.st.good{--c:var(--good)}.st.warn{--c:var(--warn)}.st.crit{--c:var(--crit)}
+.note{font-size:13px;color:var(--ink2);background:var(--chip);border-radius:10px;padding:10px 12px}
+.steps li{margin:6px 0}
+input[type=date],input[type=search]{font:inherit;padding:6px 8px;border:1px solid var(--ring);border-radius:8px;background:var(--surface);color:var(--ink)}
+.hbar{display:grid;grid-template-columns:minmax(110px,220px) 1fr auto;gap:10px;align-items:center;margin:6px 0;font-size:13px}
+.hbar .t{height:14px;position:relative}.hbar .t i{position:absolute;inset:0 auto 0 0;background:var(--s1);border-radius:0 4px 4px 0;min-width:2px}
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+<main>
+  <div class="row" style="justify-content:space-between">
+    <div><h1>Tally data</h1><div class="d" id="asof">No Tally data loaded in this browser yet.</div></div>
+    <div class="row"><a class="btn" href="/">← Dashboard</a><button id="clear">Remove data from this browser</button></div>
+  </div>
+
+  <div class="card c12" style="margin-top:12px">
+    <h2>Step 1: Ask Tally (read-only)</h2>
+    <p class="note" style="margin:0 0 10px">Use this page in the Chrome <b>on the Tally server</b>, with Tally open. Each button opens Tally's answer in a new tab. These requests can only <b>read</b>: they never change anything in Tally.</p>
+    <div class="row">
+      <button class="primary" data-q="parties">Customers &amp; suppliers</button>
+      <button class="primary" data-q="items">Stock items</button>
+      <button class="primary" data-q="bills">Bills receivable</button>
+      <span class="row">Vouchers from <input type="date" id="vfrom"> to <input type="date" id="vto"><button class="primary" data-q="vouchers">Vouchers</button></span>
+    </div>
+    <ol class="steps d" style="margin:10px 0 0">
+      <li>In the new tab, press <b>Ctrl+S</b> and save it into the <b>Export</b> folder (any name, e.g. <i>tally-items.xml</i>), then close that tab.</li>
+      <li>Repeat for each button you need.</li>
+    </ol>
+  </div>
+
+  <div class="card c12" style="margin-top:12px">
+    <h2>Step 2: Load the saved files</h2>
+    <div class="row"><input type="file" id="files" accept=".xml,.htm,.html,text/xml" multiple><span class="d" id="loadmsg"></span></div>
+    <p class="d" style="margin:8px 0 0">The data stays <b>only in this browser</b>. It is not uploaded anywhere.</p>
+  </div>
+
+  <section id="view" class="hidden">
+    <div class="grid">
+      <div class="card c3"><h2>Customers owe us</h2><div class="v" id="k1"></div><div class="d" id="k1d"></div></div>
+      <div class="card c3"><h2>Overdue 90+ days</h2><div class="v" id="k2"></div><div class="d" id="k2d"></div></div>
+      <div class="card c3"><h2>Stock value</h2><div class="v" id="k3"></div><div class="d" id="k3d"></div></div>
+      <div class="card c3"><h2>Sales in loaded vouchers</h2><div class="v" id="k4"></div><div class="d" id="k4d"></div></div>
+
+      <div class="card c6"><h2>Biggest dues</h2><div id="topdues"></div></div>
+      <div class="card c6"><h2>Sales by voucher type</h2><div id="vtypes"></div></div>
+
+      <div class="card c12"><h2>Pending sales orders <small class="d">(ordered minus delivered/invoiced, matched by order no.)</small></h2>
+        <div class="scroll"><table><thead><tr><th>Order</th><th>Date</th><th>Party</th><th>Item</th><th class="n">Ordered</th><th class="n">Done</th><th class="n">Pending</th><th class="n">In stock</th></tr></thead><tbody id="pending"></tbody></table></div></div>
+
+      <div class="card c6"><h2>Customers <small class="d">(from Tally)</small></h2><input type="search" id="pq" placeholder="Search party" style="width:100%;margin-bottom:8px">
+        <div class="scroll"><table><thead><tr><th>Party</th><th>GSTIN</th><th class="n">Due</th><th class="n">Credit limit</th></tr></thead><tbody id="parties"></tbody></table></div></div>
+      <div class="card c6"><h2>Stock <small class="d">(from Tally)</small></h2><input type="search" id="iq" placeholder="Search item" style="width:100%;margin-bottom:8px">
+        <div class="scroll"><table><thead><tr><th>Item</th><th>Group</th><th class="n">Qty</th><th class="n">Value</th></tr></thead><tbody id="items"></tbody></table></div></div>
+
+      <div class="card c12"><h2>Bills receivable</h2>
+        <div class="scroll"><table><thead><tr><th>Party</th><th>Bill</th><th>Date</th><th class="n">Amount</th><th class="n">Overdue</th></tr></thead><tbody id="bills"></tbody></table></div></div>
+    </div>
+  </section>
+</main>
+
+<form id="tf" method="post" action="http://localhost:9000" enctype="text/plain" accept-charset="utf-8" target="_blank" class="hidden"><input type="hidden" id="tfi"></form>
+
+<script>
+// ===== READ-ONLY REQUESTS (the only things this page ever sends to Tally) =====
+const SV = '<SVEXPORTFORMAT>$$SysName:XML</SVEXPORTFORMAT>';
+const coll = (id, tdl, sv = "") => `<?xml version="1.0" encoding="utf-8"?><ENVELOPE><HEADER><VERSION>1</VERSION><TALLYREQUEST>Export</TALLYREQUEST><TYPE>Collection</TYPE><ID>${id}</ID></HEADER><BODY><DESC><STATICVARIABLES>${SV}${sv}</STATICVARIABLES><TDL><TDLMESSAGE>${tdl}</TDLMESSAGE></TDL></DESC></BODY></ENVELOPE>`;
+const tdate = d => d.replaceAll("-", "");
+const REQUESTS = {
+  parties: () => coll("FlowParties", `<COLLECTION NAME="FlowParties"><TYPE>Ledger</TYPE><FETCH>NAME, PARENT, CLOSINGBALANCE, PARTYGSTIN, LEDGSTREGDETAILS.GSTIN, LEDGERPHONE, LEDGERMOBILE, ADDRESS, LEDSTATENAME, CREDITLIMIT, BILLCREDITPERIOD, ISBILLWISEON</FETCH><FILTER>FlowIsParty</FILTER></COLLECTION><SYSTEM TYPE="Formulae" NAME="FlowIsParty">$$IsBelongsTo:$$GroupSundryDebtors OR $$IsBelongsTo:$$GroupSundryCreditors</SYSTEM>`),
+  items: () => coll("FlowItems", `<COLLECTION NAME="FlowItems"><TYPE>StockItem</TYPE><FETCH>NAME, PARENT, CATEGORY, BASEUNITS, CLOSINGBALANCE, CLOSINGRATE, CLOSINGVALUE, REORDERBASE</FETCH></COLLECTION>`),
+  bills: () => `<?xml version="1.0" encoding="utf-8"?><ENVELOPE><HEADER><TALLYREQUEST>Export Data</TALLYREQUEST></HEADER><BODY><EXPORTDATA><REQUESTDESC><REPORTNAME>Bills Receivable</REPORTNAME><STATICVARIABLES>${SV}</STATICVARIABLES></REQUESTDESC></EXPORTDATA></BODY></ENVELOPE>`,
+  vouchers: () => coll("FlowVouchers", `<COLLECTION NAME="FlowVouchers"><TYPE>Voucher</TYPE><FETCH>DATE, VOUCHERTYPENAME, VOUCHERNUMBER, PARTYLEDGERNAME, AMOUNT, ALTERID, MASTERID, GUID, ISCANCELLED, ISOPTIONAL, ALLINVENTORYENTRIES.STOCKITEMNAME, ALLINVENTORYENTRIES.ACTUALQTY, ALLINVENTORYENTRIES.BILLEDQTY, ALLINVENTORYENTRIES.RATE, ALLINVENTORYENTRIES.AMOUNT, ALLINVENTORYENTRIES.BATCHALLOCATIONS.ORDERNO, ALLINVENTORYENTRIES.BATCHALLOCATIONS.GODOWNNAME</FETCH></COLLECTION>`,
+      `<SVFROMDATE>${tdate(document.getElementById("vfrom").value)}</SVFROMDATE><SVTODATE>${tdate(document.getElementById("vto").value)}</SVTODATE>`)
+};
+function isReadOnly(x){ return /<TALLYREQUEST>Export( Data)?<\/TALLYREQUEST>/.test(x) && !/Import|IMPORTDATA|ACTION="|TALLYREQUEST>Execute/i.test(x); }
+function askTally(kind){
+  const xml = REQUESTS[kind]();
+  if (!isReadOnly(xml)) { alert("Blocked: not a read-only request."); return; }
+  // text/plain form sends "name=value": split the XML at its first "=" so the body is exactly the XML.
+  const i = xml.indexOf("="), inp = document.getElementById("tfi");
+  inp.name = xml.slice(0, i); inp.value = xml.slice(i + 1);
+  document.getElementById("tf").submit();
+}
+document.querySelectorAll("[data-q]").forEach(b => b.onclick = () => askTally(b.dataset.q));
+const today = new Date(), d90 = new Date(Date.now() - 90*864e5);
+document.getElementById("vto").value = today.toISOString().slice(0,10);
+document.getElementById("vfrom").value = d90.toISOString().slice(0,10);
+
+// ===== PARSING (same mapping as tally-sync/flow-sync.ps1) =====
+const T = (n, sel) => { if (!n) return ""; const parts = sel.split("/"); let cur = n;
+  for (const p of parts){ cur = [...cur.children].find(c => c.tagName === p); if (!cur) return ""; } return cur.textContent.trim(); };
+const num = s => { const m = String(s || "").replace(/,/g, "").match(/-?\d+(\.\d+)?/); return m ? +m[0] : 0; };
+const unit = s => (String(s).match(/[A-Za-z][A-Za-z.]*\s*$/) || [""])[0].trim();
+const MON = {jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11};
+function tdt(s){ s = (s || "").trim(); if (/^\d{8}$/.test(s)) return `${s.slice(0,4)}-${s.slice(4,6)}-${s.slice(6,8)}`;
+  const m = s.match(/^(\d{1,2})-([A-Za-z]{3})-(\d{2,4})$/); if (m){ let y = +m[3]; if (y < 100) y += 2000;
+    return new Date(Date.UTC(y, MON[m[2].toLowerCase()], +m[1])).toISOString().slice(0,10); } return s; }
+const nameOf = n => n.getAttribute("NAME") || T(n, "NAME");
+
+function parseXml(text){
+  const start = text.indexOf("<"); text = text.slice(start).replace(/&#(?:[0-8]|1[124-9]|2\d|3[01]);/g, "").replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, "");
+  const doc = new DOMParser().parseFromString(text, "text/xml");
+  if (doc.querySelector("parsererror")) throw new Error("Not a valid Tally XML file");
+  return doc;
+}
+function absorb(doc, D){
+  const got = [];
+  const ledgers = [...doc.getElementsByTagName("LEDGER")];
+  if (ledgers.length){ D.parties = ledgers.map(l => { const bal = num(T(l,"CLOSINGBALANCE")); const grp = T(l,"PARENT");
+      return { name: nameOf(l), group: grp, balance: bal, due: -bal, gstin: T(l,"PARTYGSTIN") || T(l,"LEDGSTREGDETAILS.LIST/GSTIN"),
+        phone: T(l,"LEDGERMOBILE") || T(l,"LEDGERPHONE"), state: T(l,"LEDSTATENAME"), creditLimit: Math.abs(num(T(l,"CREDITLIMIT"))), creditDays: num(T(l,"BILLCREDITPERIOD")) }; });
+    got.push(`${ledgers.length} parties`); }
+  const items = [...doc.getElementsByTagName("STOCKITEM")];
+  if (items.length){ D.items = items.map(s => { const cb = T(s,"CLOSINGBALANCE");
+      return { name: nameOf(s), group: T(s,"PARENT"), category: T(s,"CATEGORY"), unit: T(s,"BASEUNITS") || unit(cb), qty: num(cb), rate: num(T(s,"CLOSINGRATE")), value: Math.abs(num(T(s,"CLOSINGVALUE"))), reorder: num(T(s,"REORDERBASE")) }; });
+    got.push(`${items.length} stock items`); }
+  const bf = doc.getElementsByTagName("BILLFIXED");
+  if (bf.length){ const bills = []; let cur = null;
+    for (const n of doc.documentElement.children){
+      if (n.tagName === "BILLFIXED"){ if (cur) bills.push(cur); cur = { party: T(n,"BILLPARTY"), ref: T(n,"BILLREF"), date: tdt(T(n,"BILLDATE")), amount: 0, overdue: 0 }; }
+      else if (cur && n.tagName === "BILLCL") cur.amount = Math.abs(num(n.textContent));
+      else if (cur && n.tagName === "BILLOVERDUE") cur.overdue = num(n.textContent);
+    }
+    if (cur) bills.push(cur); D.bills = bills; got.push(`${bills.length} bills`); }
+  const vs = [...doc.getElementsByTagName("VOUCHER")];
+  if (vs.length){ const map = new Map((D.vouchers || []).map(v => [v.guid || v.type + v.number + v.date, v]));
+    vs.forEach(v => { let inv = [...v.children].filter(c => c.tagName === "ALLINVENTORYENTRIES.LIST"); if (!inv.length) inv = [...v.children].filter(c => c.tagName === "INVENTORYENTRIES.LIST");
+      const items = inv.map(e => { const q = T(e,"ACTUALQTY") || T(e,"BILLEDQTY"); return { item: T(e,"STOCKITEMNAME"), qty: Math.abs(num(q)), unit: unit(q), rate: num(T(e,"RATE")), amount: Math.abs(num(T(e,"AMOUNT"))), orderNo: T(e,"BATCHALLOCATIONS.LIST/ORDERNO"), godown: T(e,"BATCHALLOCATIONS.LIST/GODOWNNAME") }; });
+      let amt = Math.abs(num(T(v,"AMOUNT"))); if (!amt) amt = items.reduce((a,i) => a + i.amount, 0);
+      const rec = { guid: T(v,"GUID"), date: tdt(T(v,"DATE")), type: T(v,"VOUCHERTYPENAME") || v.getAttribute("VCHTYPE") || "", number: T(v,"VOUCHERNUMBER"), party: T(v,"PARTYLEDGERNAME"), amount: amt,
+        cancelled: T(v,"ISCANCELLED") === "Yes", optional: T(v,"ISOPTIONAL") === "Yes", items };
+      map.set(rec.guid || rec.type + rec.number + rec.date, rec); });
+    D.vouchers = [...map.values()].sort((a,b) => a.date.localeCompare(b.date)); got.push(`${vs.length} vouchers`); }
+  return got;
+}
+
+// ===== STORAGE (this browser only) =====
+const KEY = "flow-tally-real";
+const load = () => { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch(e){ return {}; } };
+const save = D => { try { localStorage.setItem(KEY, JSON.stringify(D)); return true; } catch(e){ alert("This browser couldn't store that much data. Try a shorter voucher date range."); return false; } };
+let D = load();
+
+document.getElementById("files").onchange = async e => {
+  const msgs = [];
+  for (const f of e.target.files){ try { const got = absorb(parseXml(await f.text()), D); msgs.push(`${f.name}: ${got.join(", ") || "nothing recognised"}`); } catch(err){ msgs.push(`${f.name}: ${err.message}`); } }
+  D.loadedAt = new Date().toISOString(); save(D);
+  document.getElementById("loadmsg").textContent = msgs.join(" · "); render(); e.target.value = "";
+};
+document.getElementById("clear").onclick = () => { if (confirm("Remove all Tally data from this browser? (Tally itself is not affected.)")){ try { localStorage.removeItem(KEY); } catch(e){} D = {}; render(); } };
+
+// ===== VIEW =====
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const inr = n => { const a = Math.abs(n), s = n < 0 ? "−" : ""; if (a >= 1e7) return s+"₹"+(a/1e7).toFixed(2)+" Cr"; if (a >= 1e5) return s+"₹"+(a/1e5).toFixed(2)+" L"; return s+"₹"+Math.round(a).toLocaleString("en-IN"); };
+const qty = n => (Math.round(n * 100) / 100).toLocaleString("en-IN");
+const isSales = t => /sale/i.test(t) && !/order|return|credit/i.test(t);
+const isSO = t => /sales order/i.test(t);
+const isDone = t => (/delivery|sale/i.test(t)) && !/order|return|credit/i.test(t);
+function hbars(el, rows){ const max = Math.max(...rows.map(r => r.v), 1);
+  el.innerHTML = rows.map(r => `<div class="hbar"><span>${esc(r.k)}</span><span class="t"><i style="width:${(r.v/max*100).toFixed(1)}%"></i></span><span class="d">${inr(r.v)}</span></div>`).join("") || `<p class="d">No data loaded.</p>`; }
+
+function render(){
+  const P = (D.parties || []), debtors = P.filter(p => p.due > 0), I = D.items || [], B = D.bills || [], V = (D.vouchers || []).filter(v => !v.cancelled && !v.optional);
+  const has = P.length || I.length || B.length || V.length;
+  document.getElementById("view").classList.toggle("hidden", !has);
+  document.getElementById("asof").textContent = has ? `Loaded ${new Date(D.loadedAt).toLocaleString("en-IN")} · ${P.length} parties · ${I.length} items · ${B.length} bills · ${V.length} vouchers` : "No Tally data loaded in this browser yet.";
+  if (!has) return;
+  const due = debtors.reduce((a,p) => a + p.due, 0);
+  document.getElementById("k1").textContent = inr(due); document.getElementById("k1d").textContent = `${debtors.length} customers with a balance`;
+  const old = B.filter(b => b.overdue > 90), oldAmt = old.reduce((a,b) => a + b.amount, 0);
+  document.getElementById("k2").textContent = B.length ? inr(oldAmt) : "–"; document.getElementById("k2d").textContent = B.length ? `${old.length} bills` : "load Bills receivable";
+  const sv = I.reduce((a,i) => a + i.value, 0);
+  document.getElementById("k3").textContent = I.length ? inr(sv) : "–"; document.getElementById("k3d").textContent = I.length ? `${I.length} items, ${I.filter(i => i.qty <= 0).length} at zero or below` : "load Stock items";
+  const sales = V.filter(v => isSales(v.type)), st = sales.reduce((a,v) => a + v.amount, 0);
+  document.getElementById("k4").textContent = V.length ? inr(st) : "–";
+  document.getElementById("k4d").textContent = V.length ? `${sales.length} bills, ${V[0]?.date} to ${V[V.length-1]?.date}` : "load Vouchers";
+  hbars(document.getElementById("topdues"), debtors.sort((a,b) => b.due - a.due).slice(0, 12).map(p => ({ k: p.name, v: p.due })));
+  const byType = {}; V.forEach(v => byType[v.type] = (byType[v.type] || 0) + v.amount);
+  hbars(document.getElementById("vtypes"), Object.entries(byType).sort((a,b) => b[1] - a[1]).map(([k,v]) => ({k, v})));
+
+  // pending sales orders: ordered qty per (order no, item) minus qty on delivery notes / sales with same order no
+  const stock = new Map(I.map(i => [i.name, i.qty])), ord = new Map();
+  V.filter(v => isSO(v.type)).forEach(v => v.items.forEach(it => { const k = (it.orderNo || v.number) + "|" + it.item;
+    const o = ord.get(k) || { no: it.orderNo || v.number, date: v.date, party: v.party, item: it.item, unit: it.unit, ordered: 0, done: 0 }; o.ordered += it.qty; ord.set(k, o); }));
+  V.filter(v => isDone(v.type)).forEach(v => v.items.forEach(it => { const o = ord.get(it.orderNo + "|" + it.item); if (o) o.done += it.qty; }));
+  const pend = [...ord.values()].filter(o => o.ordered - o.done > 0.001).sort((a,b) => a.date.localeCompare(b.date));
+  document.getElementById("pending").innerHTML = pend.map(o => { const p = o.ordered - o.done, s = stock.get(o.item);
+    return `<tr><td>${esc(o.no)}</td><td>${o.date}</td><td>${esc(o.party)}</td><td>${esc(o.item)}</td><td class="n">${qty(o.ordered)} ${esc(o.unit)}</td><td class="n">${qty(o.done)}</td><td class="n"><b>${qty(p)}</b></td>
+      <td class="n">${s === undefined ? "–" : s < p ? `<span class="st crit">${qty(s)}</span>` : qty(s)}</td></tr>`; }).join("") || `<tr><td colspan="8" class="d">${V.some(v => isSO(v.type)) ? "No pending orders." : "No Sales Orders in the loaded vouchers."}</td></tr>`;
+
+  const pq = document.getElementById("pq").value.toLowerCase();
+  document.getElementById("parties").innerHTML = P.filter(p => !pq || p.name.toLowerCase().includes(pq)).sort((a,b) => b.due - a.due).slice(0, 300).map(p =>
+    `<tr><td>${esc(p.name)}<div class="d">${esc(p.group)}</div></td><td class="d">${esc(p.gstin) || '<span class="st warn">none</span>'}</td><td class="n">${p.due ? inr(p.due) : "–"}</td>
+     <td class="n">${p.creditLimit ? (p.due > p.creditLimit ? `<span class="st crit">${inr(p.creditLimit)}</span>` : inr(p.creditLimit)) : "–"}</td></tr>`).join("");
+  const iq = document.getElementById("iq").value.toLowerCase();
+  document.getElementById("items").innerHTML = I.filter(i => !iq || i.name.toLowerCase().includes(iq)).sort((a,b) => b.value - a.value).slice(0, 300).map(i =>
+    `<tr><td>${esc(i.name)}</td><td class="d">${esc(i.group)}</td><td class="n">${i.qty <= 0 ? `<span class="st crit">${qty(i.qty)}</span>` : qty(i.qty)} ${esc(i.unit)}</td><td class="n">${inr(i.value)}</td></tr>`).join("");
+  document.getElementById("bills").innerHTML = B.slice().sort((a,b) => b.overdue - a.overdue).slice(0, 300).map(b =>
+    `<tr><td>${esc(b.party)}</td><td>${esc(b.ref)}</td><td>${b.date}</td><td class="n">${inr(b.amount)}</td><td class="n">${b.overdue > 90 ? `<span class="st crit">${b.overdue}d</span>` : b.overdue > 60 ? `<span class="st warn">${b.overdue}d</span>` : b.overdue + "d"}</td></tr>`).join("");
+}
+document.getElementById("pq").oninput = render; document.getElementById("iq").oninput = render;
+render();
+</script>
+</body>
+</html>
