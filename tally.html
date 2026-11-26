@@ -145,7 +145,7 @@ function absorb(doc, D){
     got.push(`${items.length} stock items`); }
   const bf = doc.getElementsByTagName("BILLFIXED");
   if (bf.length){ const bills = []; let cur = null;
-    for (const n of doc.documentElement.children){
+    for (const n of bf[0].parentNode.children){
       if (n.tagName === "BILLFIXED"){ if (cur) bills.push(cur); cur = { party: T(n,"BILLPARTY"), ref: T(n,"BILLREF"), date: tdt(T(n,"BILLDATE")), amount: 0, overdue: 0 }; }
       else if (cur && n.tagName === "BILLCL") cur.amount = Math.abs(num(n.textContent));
       else if (cur && n.tagName === "BILLOVERDUE") cur.overdue = num(n.textContent);
