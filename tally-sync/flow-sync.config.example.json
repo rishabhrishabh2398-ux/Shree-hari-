@@ -1,0 +1,11 @@
+{
+  "tallyUrl": "http://localhost:9000",
+  "company": "",
+  "intervalSeconds": 120,
+  "mastersEveryMins": 10,
+  "fromDate": "2024-04-01",
+  "outDir": "out",
+  "fullResyncHour": 3,
+  "supabaseUrl": "",
+  "supabaseKey": ""
+}

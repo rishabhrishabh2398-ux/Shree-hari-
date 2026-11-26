@@ -1,1 +1,5 @@
 .claude/
+tally-sync/out/
+tally-sync/flow-sync.config.json
+supabase/.temp/
+*.log
