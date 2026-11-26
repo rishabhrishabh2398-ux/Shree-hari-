@@ -1572,22 +1572,27 @@ function vTallyData(){
   renderTdPending(V, I); renderTdTable();
 }
 function vTallySnapshot(){
-  const d = TD.data;
+  const d = TD.data, s = d.sales, du = d.dues, st = d.stock;
   view.innerHTML = `<div class="grid">
     <section class="card c12"><div class="banner info">${ic("tally")}<div class="small"><b>Real Tally data</b> — ${esc(d.source)}. ${esc(d.note)}
       <label class="lnk sm filebtn" style="display:inline">Load your own files for more<input type="file" id="td-file" accept=".xml,text/xml" multiple class="sr"></label></div></div></section>
-    ${kpi("Total sales in this period", inr(d.totalSalesAmt), `${d.totalSalesCount} bills · ${d.voucherTotal} vouchers total`)}
-    ${kpi("Racold Sales", inr((d.byType.find(t => t.type === "Racold Sales") || {}).amt || 0), "voucher type")}
-    ${kpi("Ultratech Sales", inr((d.byType.find(t => t.type === "Ultratech Sales") || {}).amt || 0), "voucher type")}
-    ${kpi("Customer dues / stock value", "Not in this snapshot", "load your own export for this")}
-    <section class="card c5"><div class="ch"><h2>Sales by voucher type</h2></div><div id="td-dues"></div></section>
-    <section class="card c7"><div class="ch"><h2>Top customers <small>· by sales amount in this period</small></h2></div><div id="td-pending"></div></section>
+    ${kpi("Customers owe us", inr(du.totalDue), `${du.partyCount} parties · ${du.billCount} bills`)}
+    ${kpi("Overdue 90+ days", inr(du.overdue90.amt), `${du.overdue90.count} bills`)}
+    ${kpi("Stock value", inr(st.totalValue), `${st.itemCount} items, ${st.zeroOrBelow} at zero or below`)}
+    ${kpi("Sales in this period", inr(s.totalSalesAmt), `${s.totalSalesCount} bills · ${s.voucherTotal} vouchers total`)}
+    <section class="card c5"><div class="ch"><h2>Biggest dues</h2></div><div id="td-dues"></div></section>
+    <section class="card c7"><div class="ch"><h2>Top customers <small>· by sales in this period</small></h2></div><div id="td-pending"></div></section>
+    <section class="card c6"><div class="ch"><h2>Sales by voucher type <small>· this period</small></h2></div><div id="td-types"></div></section>
+    <section class="card c6"><div class="ch"><h2>Top stock by value</h2></div>
+      ${tbl([["Item","main"],["Qty","n"],["Value","n"]], st.topItems.slice(0, 15).map(i => ({ cells: [esc(i.name), `${num(i.qty)} ${esc(i.unit)}`, `<b>${inr(i.value)}</b>`] })), empty("No items", "", "box"))}
+    </section>
     <section class="card c12"><div class="ch"><h2>Top-selling items <small>· by sales amount in this period</small></h2></div>
-      ${tbl([["Item","main"],["Sales amount","n"]], d.topItems.map(i => ({ cells: [esc(i.name), `<b>${inr(i.amt)}</b>`] })), empty("No items", "", "box"))}
+      ${tbl([["Item","main"],["Sales amount","n"]], s.topItemsBySales.map(i => ({ cells: [esc(i.name), `<b>${inr(i.amt)}</b>`] })), empty("No items", "", "box"))}
     </section>
   </div>`;
-  hbars($("td-dues"), d.byType.filter(t => t.amt > 0).map(t => ({ k: esc(t.type), label: t.type, v: t.amt })));
-  $("td-pending").innerHTML = tbl([["Customer","main"],["Sales amount","n"]], d.topCustomers.map(c => ({ cells: [esc(c.name), `<b>${inr(c.amt)}</b>`] })), empty("No customers", "", "users"));
+  hbars($("td-dues"), du.topDues.slice(0, 10).map(c => ({ k: esc(c.name), label: c.name, v: c.amt })));
+  $("td-pending").innerHTML = tbl([["Customer","main"],["Sales amount","n"]], s.topCustomersBySales.map(c => ({ cells: [esc(c.name), `<b>${inr(c.amt)}</b>`] })), empty("No customers", "", "users"));
+  $("td-types").innerHTML = tbl([["Voucher type","main"],["Amount","n"]], s.byType.filter(t => t.amt > 0).map(t => ({ cells: [esc(t.type), `<b>${inr(t.amt)}</b>`] })), empty("No data", "", "orders"));
 }
 function renderTdPending(V, I){
   const stock = new Map(I.map(i => [i.name, i.qty])), ord = new Map();
