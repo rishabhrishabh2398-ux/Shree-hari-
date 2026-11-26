@@ -1,0 +1,919 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Flow Dashboard</title>
+<style>
+:root{
+  color-scheme: light;
+  --page:#f9f9f7; --surface:#fcfcfb; --ink:#0b0b0b; --ink2:#52514e; --muted:#898781;
+  --grid:#e1e0d9; --axis:#c3c2b7; --ring:rgba(11,11,11,.10);
+  --s1:#2a78d6; --up:#006300; --down:#d03b3b;
+  --good:#0ca30c; --warn:#fab219; --serious:#ec835a; --crit:#d03b3b;
+  --chip:#f0efec; --hl:#fff6dd;
+}
+@media (prefers-color-scheme: dark){
+  :root:where(:not([data-theme="light"])){
+    color-scheme: dark;
+    --page:#0d0d0d; --surface:#1a1a19; --ink:#f0efec; --ink2:#c3c2b7; --muted:#898781;
+    --grid:#2c2c2a; --axis:#383835; --ring:rgba(255,255,255,.10);
+    --s1:#3987e5; --up:#0ca30c; --chip:#262624; --hl:#2b2612;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme: dark;
+  --page:#0d0d0d; --surface:#1a1a19; --ink:#f0efec; --ink2:#c3c2b7; --muted:#898781;
+  --grid:#2c2c2a; --axis:#383835; --ring:rgba(255,255,255,.10);
+  --s1:#3987e5; --up:#0ca30c; --chip:#262624; --hl:#2b2612;
+}
+*{box-sizing:border-box}
+html,body{overflow-x:hidden}
+body{margin:0;background:var(--page);color:var(--ink);font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+button,select,input,textarea{font:inherit;color:inherit}
+.wrap{max-width:1280px;margin:0 auto;padding:0 16px}
+header{position:sticky;top:0;z-index:5;background:var(--page);border-bottom:1px solid var(--grid)}
+.top{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:12px 0 8px}
+.brand h1{font-size:19px;margin:0}
+.sub{font-size:12px;color:var(--muted)}
+.ctrl{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.live{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--ink2);border:1px solid var(--ring);background:var(--surface);padding:4px 10px;border-radius:999px}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--good);animation:pulse 2s infinite}
+@keyframes pulse{50%{opacity:.3}}
+select,input,textarea{background:var(--surface);border:1px solid var(--ring);border-radius:8px;padding:6px 9px;min-width:0}
+nav{display:flex;gap:4px;overflow-x:auto;padding-bottom:8px;scrollbar-width:none}
+nav::-webkit-scrollbar{display:none}
+nav button{border:0;background:none;padding:7px 11px;border-radius:8px;cursor:pointer;color:var(--ink2);white-space:nowrap}
+nav button.on{background:var(--ink);color:var(--page)}
+.badge{display:inline-block;min-width:18px;padding:0 5px;margin-left:4px;border-radius:9px;background:var(--crit);color:#fff;font-size:11px;line-height:18px;text-align:center}
+.note{margin:12px 0 0;padding:8px 12px;border:1px dashed var(--axis);border-radius:10px;font-size:13px;color:var(--ink2)}
+.grid{display:grid;gap:12px;grid-template-columns:repeat(12,minmax(0,1fr));padding:12px 0 40px}
+.card{background:var(--surface);border:1px solid var(--ring);border-radius:12px;padding:14px;min-width:0}
+.card h2{font-size:13px;margin:0 0 10px;color:var(--ink2);font-weight:600}
+.card h2 small{font-weight:400;color:var(--muted)}
+.head{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.head h2{margin:0}
+.c3{grid-column:span 3}.c4{grid-column:span 4}.c5{grid-column:span 5}.c6{grid-column:span 6}.c7{grid-column:span 7}.c8{grid-column:span 8}.c12{grid-column:span 12}
+@media (max-width:980px){.c3{grid-column:span 6}.c4,.c5,.c6,.c7,.c8{grid-column:span 12}}
+@media (max-width:520px){.c3{grid-column:span 12}}
+.kpi .v{font-size:26px;font-weight:700;letter-spacing:-.01em}
+.kpi .d{font-size:13px;color:var(--ink2);margin-top:2px}
+.up{color:var(--up)}.down{color:var(--down)}
+.meter{height:6px;background:var(--grid);border-radius:3px;margin-top:10px;overflow:hidden}
+.meter i{display:block;height:100%;background:var(--s1);border-radius:3px}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{padding:8px 6px;border-bottom:1px solid var(--grid);text-align:left;vertical-align:top}
+th{font-size:12px;color:var(--muted);font-weight:600;white-space:nowrap}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+tr.hl td{background:var(--hl)}
+.scroll{overflow-x:auto}
+.tag{display:inline-flex;align-items:center;gap:4px;font-size:12px;padding:1px 8px;border-radius:999px;background:var(--chip);color:var(--ink2);white-space:nowrap}
+.st{display:inline-flex;align-items:center;gap:5px;font-size:12px;white-space:nowrap}
+.st::before{content:"";flex:none;width:8px;height:8px;border-radius:50%;background:var(--c)}
+.st.good{--c:var(--good)}.st.warn{--c:var(--warn)}.st.serious{--c:var(--serious)}.st.crit{--c:var(--crit)}.st.info{--c:var(--s1)}.st.none{--c:var(--axis)}
+.muted{color:var(--muted)} .small{font-size:12px}
+.filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.filters input{flex:1 1 180px}
+.btn{border:1px solid var(--ring);background:var(--surface);border-radius:8px;padding:5px 10px;cursor:pointer;font-size:13px;white-space:nowrap}
+.btn.primary{background:var(--s1);border-color:var(--s1);color:#fff}
+.btn.danger{color:var(--crit)}
+.btns{display:flex;gap:6px;flex-wrap:wrap}
+.hbar{display:grid;grid-template-columns:minmax(90px,150px) 1fr auto;gap:10px;align-items:center;margin:6px 0;font-size:13px}
+.hbar .t{height:14px;position:relative}
+.hbar .t i{position:absolute;left:0;top:0;bottom:0;background:var(--s1);border-radius:0 4px 4px 0;min-width:2px}
+.hbar .n{font-variant-numeric:tabular-nums;color:var(--ink2)}
+.chart svg{width:100%;height:auto;display:block;overflow:visible}
+.flow{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px}
+.flow div{background:var(--chip);border-radius:10px;padding:10px;cursor:pointer;border:2px solid transparent}
+.flow div.on{border-color:var(--s1)}
+.flow b{display:block;font-size:22px}
+.flow span{font-size:12px;color:var(--ink2)}
+@media (max-width:760px){.flow{grid-template-columns:repeat(3,minmax(0,1fr))}}
+#tip{position:fixed;pointer-events:none;z-index:30;background:var(--ink);color:var(--page);font-size:12px;padding:6px 9px;border-radius:8px;opacity:0;white-space:nowrap}
+.list{padding-left:18px;margin:0}.list li{margin:5px 0}
+dialog{border:1px solid var(--ring);border-radius:12px;background:var(--surface);color:var(--ink);max-width:640px;width:calc(100% - 24px);padding:16px}
+dialog::backdrop{background:rgba(0,0,0,.35)}
+dialog h3{margin:0 0 4px}
+.fld{display:block;font-size:12px;color:var(--ink2);margin:10px 0 4px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media (max-width:520px){.row2{grid-template-columns:1fr}}
+.info{background:var(--chip);border-radius:10px;padding:8px 10px;font-size:13px;margin-top:8px}
+.lines td{padding:4px}
+.lines select,.lines input{width:100%}
+.wa{border:1px solid var(--ring);border-radius:10px;padding:12px;margin-top:10px}
+.wa pre{white-space:pre-wrap;font:inherit;font-size:13px;color:var(--ink2);background:var(--chip);border-radius:8px;padding:8px;margin:6px 0}
+.hidden{display:none!important}
+#printarea{display:none}
+@media print{
+  body>*:not(#printarea){display:none!important}
+  #printarea{display:block;color:#000;font:13px/1.5 system-ui,sans-serif}
+  #printarea table td,#printarea table th{border:1px solid #999;padding:6px}
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <div class="top">
+      <div class="brand"><h1>Flow Dashboard</h1><div class="sub" id="asof">Loading…</div></div>
+      <div class="ctrl">
+        <label class="muted small" for="role">Viewing as</label>
+        <select id="role">
+          <option value="owner">Owner</option>
+          <option value="office">Office / billing</option>
+          <option value="dispatch">Godown / dispatch</option>
+          <option value="sales:Ravi">Salesman: Ravi</option>
+          <option value="sales:Imran">Salesman: Imran</option>
+        </select>
+        <span class="live"><span class="dot"></span><span>Tally sync · every 2 min</span></span>
+      </div>
+    </div>
+    <nav id="tabs"></nav>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="note">Sample data. Customers, items and stock imitate what will come from Tally. Nothing here is sent to Tally or WhatsApp. <button class="btn" id="reset" style="margin-left:6px">Reset sample</button></div>
+
+  <!-- OVERVIEW -->
+  <section class="grid tab" id="t-overview">
+    <div class="card kpi c3"><h2>Sales today</h2><div class="v" id="k1"></div><div class="d" id="k1d"></div></div>
+    <div class="card kpi c3"><h2>Sales this month</h2><div class="v" id="k2"></div><div class="d" id="k2d"></div><div class="meter"><i id="k2m"></i></div></div>
+    <div class="card kpi c3"><h2>Open orders</h2><div class="v" id="k3"></div><div class="d" id="k3d"></div></div>
+    <div class="card kpi c3"><h2>Money to collect</h2><div class="v" id="k4"></div><div class="d" id="k4d"></div></div>
+    <div class="card c6"><h2>Needs attention</h2><ul class="list" id="alerts"></ul></div>
+    <div class="card c6"><h2>Sales by brand <small>· this month</small></h2><div id="brandbars"></div></div>
+    <div class="card c8 chart"><h2>Daily sales <small>· last 30 days</small></h2><div id="trend"></div></div>
+    <div class="card c4 chart"><h2>Racold geysers <small>· units per month</small></h2><div id="season"></div></div>
+  </section>
+
+  <!-- ORDERS -->
+  <section class="grid tab hidden" id="t-orders">
+    <div class="card c12">
+      <div class="head"><h2>Order flow <small>· tap a box to filter</small></h2>
+        <div class="btns"><button class="btn primary" data-act="new-order" data-perm="order.create">+ New order</button></div></div>
+      <div class="flow" id="flow"></div>
+    </div>
+    <div class="card c12">
+      <div class="filters">
+        <input id="of-q" placeholder="Search order, party or item">
+        <select id="of-src"><option value="">All sources</option><option>Manual</option><option>WhatsApp</option></select>
+      </div>
+      <div class="scroll"><table>
+        <thead><tr><th>Order</th><th>Party</th><th>Items (pending / ordered)</th><th>Status</th><th class="n">Age</th><th></th></tr></thead>
+        <tbody id="orders"></tbody>
+      </table></div>
+    </div>
+  </section>
+
+  <!-- WHATSAPP -->
+  <section class="grid tab hidden" id="t-whatsapp">
+    <div class="card c12">
+      <h2>Orders from WhatsApp groups</h2>
+      <p class="small muted" style="margin:0 0 8px">Paste order messages from your group, or upload a chat export (<b>WhatsApp → group → ⋮ → More → Export chat → Without media</b>). Items and parties are matched against Tally's lists. Check each one, fix anything wrong, then create the order.</p>
+      <textarea id="wa-text" rows="6" style="width:100%" placeholder="Paste one or more WhatsApp messages here"></textarea>
+      <div class="btns" style="margin-top:8px">
+        <button class="btn primary" id="wa-read">Read orders</button>
+        <label class="btn">Upload chat export (.txt)<input type="file" id="wa-file" accept=".txt,text/plain" class="hidden"></label>
+        <button class="btn" id="wa-sample">Try sample messages</button>
+      </div>
+      <div id="wa-out"></div>
+    </div>
+  </section>
+
+  <!-- CHALLANS -->
+  <section class="grid tab hidden" id="t-challans">
+    <div class="card c12">
+      <h2>Delivery challans</h2>
+      <div class="filters">
+        <select id="cf-st"><option value="">All</option><option>Draft</option><option>Dispatched</option><option>Invoiced</option></select>
+      </div>
+      <div class="scroll"><table>
+        <thead><tr><th>Challan</th><th>Order / party</th><th>Items</th><th>Vehicle</th><th>Status</th><th></th></tr></thead>
+        <tbody id="challans"></tbody>
+      </table></div>
+      <p class="small muted" style="margin:8px 0 0">An order is marked complete when Tally shows a sales invoice for the challan. In this sample, "Demo: invoice made" pretends that happened.</p>
+    </div>
+  </section>
+
+  <!-- PURCHASE -->
+  <section class="grid tab hidden" id="t-purchase">
+    <div class="card c12">
+      <h2>To order from companies <small>· customer orders waiting + items below reorder level</small></h2>
+      <div id="suggest"></div>
+    </div>
+    <div class="card c12">
+      <h2>Purchase orders</h2>
+      <div class="scroll"><table>
+        <thead><tr><th>PO</th><th>Company</th><th>Items (received / ordered)</th><th>Customer orders waiting</th><th>Status</th><th class="n">Days open</th><th></th></tr></thead>
+        <tbody id="pos"></tbody>
+      </table></div>
+    </div>
+  </section>
+
+  <!-- STOCK -->
+  <section class="grid tab hidden" id="t-stock">
+    <div class="card kpi c3" data-perm="view.value"><h2>Stock value</h2><div class="v" id="s1"></div><div class="d" id="s1d"></div></div>
+    <div class="card kpi c3"><h2>Short for orders</h2><div class="v" id="s2"></div><div class="d">orders need more than we have</div></div>
+    <div class="card kpi c3"><h2>Below reorder level</h2><div class="v" id="s3"></div><div class="d">after reserving for orders</div></div>
+    <div class="card kpi c3"><h2>Not sold in 90+ days</h2><div class="v" id="s4"></div><div class="d">items</div></div>
+    <div class="card c12">
+      <div class="filters">
+        <input id="sf-q" placeholder="Search item">
+        <select id="sf-brand"></select>
+        <select id="sf-view"><option value="">All items</option><option value="short">Short for orders</option><option value="reorder">Below reorder level</option><option value="dead">Not selling (90+ days)</option></select>
+      </div>
+      <div class="scroll"><table>
+        <thead><tr><th>Item</th><th>Brand</th><th class="n">In Tally</th><th class="n">Out on challan</th><th class="n">Reserved</th><th class="n">Free</th><th class="n">On PO</th><th class="n">Reorder at</th><th class="n">Last sold</th><th></th></tr></thead>
+        <tbody id="stock"></tbody>
+      </table></div>
+    </div>
+  </section>
+
+  <!-- PARTIES -->
+  <section class="grid tab hidden" id="t-parties">
+    <div class="card c4"><h2>Money to collect, by age</h2><div id="ageing"></div></div>
+    <div class="card c8">
+      <div class="filters"><input id="pf-q" placeholder="Search party or town"></div>
+      <div class="scroll"><table>
+        <thead><tr><th>Party <small class="muted">(from Tally)</small></th><th>Salesman</th><th>GSTIN / phone</th><th class="n">Due</th><th class="n">Oldest bill</th><th class="n">Credit limit</th><th></th></tr></thead>
+        <tbody id="parties"></tbody>
+      </table></div>
+    </div>
+  </section>
+
+  <!-- ACCOUNTS -->
+  <section class="grid tab hidden" id="t-accounts">
+    <div class="card kpi c3"><h2>Cash in hand</h2><div class="v" id="a1"></div></div>
+    <div class="card kpi c3"><h2>Bank balance</h2><div class="v" id="a2"></div></div>
+    <div class="card kpi c3"><h2>We owe companies</h2><div class="v" id="a3"></div></div>
+    <div class="card kpi c3"><h2>GST payable (est.)</h2><div class="v" id="a4"></div><div class="d">this month</div></div>
+    <div class="card c6"><h2>Payables to companies</h2><table><thead><tr><th>Company</th><th class="n">Due</th><th class="n">Due date</th></tr></thead><tbody id="payables"></tbody></table></div>
+    <div class="card c6"><h2>Tally edit log <small>· recent changes to entries</small></h2><table><thead><tr><th>Time</th><th>Entry</th><th>Change</th><th>By</th></tr></thead><tbody id="editlog"></tbody></table></div>
+  </section>
+
+  <!-- APPROVALS -->
+  <section class="grid tab hidden" id="t-approvals">
+    <div class="card c12">
+      <h2>Approvals</h2>
+      <p class="small muted" style="margin:0 0 8px">Anything that would change Tally, or break a rule (like credit limit), waits here for the owner. Approved items go to Tally through the sync program, after a backup. In this sample, nothing is sent.</p>
+      <div class="scroll"><table>
+        <thead><tr><th>When</th><th>By</th><th>What</th><th>Details</th><th>Status</th><th></th></tr></thead>
+        <tbody id="reqs"></tbody>
+      </table></div>
+    </div>
+  </section>
+
+  <!-- RULES -->
+  <section class="grid tab hidden" id="t-rules">
+    <div class="card c12">
+      <h2>Golden rules</h2>
+      <ul class="list" style="font-size:14px">
+        <li><b>Tally is the boss.</b> Customers, items, stock, invoices and dues are only read from Tally.</li>
+        <li><b>Nothing is written to Tally without the owner's approval.</b> Approved sales orders, challans (as Delivery Notes) and purchase orders go in through Tally's import, after a backup.</li>
+        <li><b>Stock changes only through Tally entries</b> (delivery notes, invoices, purchases). Nobody types stock numbers.</li>
+        <li><b>Orders over a party's credit limit, or with bills older than 90 days, wait for the owner.</b></li>
+        <li><b>A challan can't send more than is free in stock.</b></li>
+        <li><b>Salesmen only see their own parties.</b> Stock value and accounts are owner-only.</li>
+        <li><b>Every action is logged</b> with who did it and when.</li>
+      </ul>
+    </div>
+    <div class="card c12">
+      <h2>Who can do what</h2>
+      <div class="scroll"><table id="rulestable"></table></div>
+    </div>
+  </section>
+</div>
+
+<dialog id="dlg"></dialog>
+<div id="tip"></div>
+<div id="printarea"></div>
+
+<script>
+// ===================== SETTINGS =====================
+const DATA_URL = "";            // later: read-only data endpoint filled by the Tally sync
+const STORE_KEY = "flow-v3";
+
+// ===================== HELPERS =====================
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+function inr(n){ const a = Math.abs(n), s = n < 0 ? "−" : "";
+  if (a >= 1e7) return s+"₹"+(a/1e7).toFixed(2)+" Cr"; if (a >= 1e5) return s+"₹"+(a/1e5).toFixed(2)+" L";
+  return s+"₹"+Math.round(a).toLocaleString("en-IN"); }
+const num = n => Math.round(n).toLocaleString("en-IN");
+const today = () => new Date().toISOString().slice(0,10);
+const daysAgo = d => Math.max(0, Math.round((Date.now() - new Date(d)) / 864e5));
+const dstr = (n) => { const d = new Date(); d.setDate(d.getDate() - n); return d.toISOString().slice(0,10); };
+const fmtD = d => new Date(d).toLocaleDateString("en-IN",{day:"numeric",month:"short"});
+const tip = $("tip");
+function showTip(e, html){ tip.innerHTML = html; tip.style.opacity = 1;
+  tip.style.left = Math.min(e.clientX + 12, innerWidth - tip.offsetWidth - 8) + "px"; tip.style.top = (e.clientY - 36) + "px"; }
+const hideTip = () => tip.style.opacity = 0;
+
+// ===================== ROLES & RULES =====================
+const ACTIONS = [
+  ["order.create",   "Create order (manual or WhatsApp)", ["owner","office","sales"]],
+  ["order.cancel",   "Cancel order",                       ["owner","office"]],
+  ["challan.create", "Make delivery challan",              ["owner","office"]],
+  ["challan.dispatch","Mark challan dispatched",           ["owner","office","dispatch"]],
+  ["po.create",      "Create purchase order",              ["owner","office"]],
+  ["po.receive",     "Record goods received",              ["owner","office","dispatch"]],
+  ["req.create",     "Request a change in Tally",          ["owner","office","sales"]],
+  ["req.approve",    "Approve changes / credit holds",     ["owner"]],
+  ["view.value",     "See stock value and rates",          ["owner","office"]],
+  ["view.accounts",  "See accounts, GST, edit log",        ["owner"]],
+  ["view.all",       "See all parties (not just own)",     ["owner","office","dispatch"]]
+];
+const TABS = [
+  ["overview","Overview",  ["owner","office","sales"]],
+  ["orders","Orders",      ["owner","office","sales","dispatch"]],
+  ["whatsapp","WhatsApp",  ["owner","office","sales"]],
+  ["challans","Challans",  ["owner","office","dispatch"]],
+  ["purchase","Purchase",  ["owner","office"]],
+  ["stock","Stock",        ["owner","office","sales","dispatch"]],
+  ["parties","Parties",    ["owner","office","sales"]],
+  ["accounts","Accounts",  ["owner"]],
+  ["approvals","Approvals",["owner","office","sales"]],
+  ["rules","Users & rules",["owner","office","sales","dispatch"]]
+];
+let role = "owner";
+const base = () => role.startsWith("sales:") ? "sales" : role;
+const me = () => role.split(":")[1] || "";
+const userName = () => ({owner:"Owner",office:"Office",dispatch:"Godown"})[role] || me();
+const can = p => ACTIONS.find(a => a[0] === p)?.[2].includes(base());
+const mineParty = name => can("view.all") || CUST(name)?.salesman === me();
+
+// ===================== MASTER DATA (as from Tally) =====================
+const COMPANY = { "Hindware Sanitaryware":"Hindware (Brilloca)", "Hindware CP Fittings":"Hindware (Brilloca)", "Racold":"Racold (Ariston)", "UltraTech BPD":"UltraTech – BPD", "Jaypee":"Jaypee" };
+const BRANDS = Object.keys(COMPANY);
+// [brand, name, unit, rate, aliases, size]
+const ITEM_DEF = [
+  ["Hindware Sanitaryware","Wall-hung WC, white","Nos",9800,["wall hung","wallhung","wall-hung","wh wc"]],
+  ["Hindware Sanitaryware","Floor-mount EWC, S-trap","Nos",5200,["ewc","floor mount","s trap","s-trap","western"]],
+  ["Hindware Sanitaryware","Table-top basin, oval","Nos",3400,["table top","tabletop","table-top","counter top"]],
+  ["Hindware Sanitaryware","Wash basin with pedestal","Nos",2600,["pedestal"]],
+  ["Hindware Sanitaryware","Indian WC (Orissa pan)","Nos",1150,["indian","orissa","iwc"]],
+  ["Hindware Sanitaryware","Urinal, half stall","Nos",2900,["urinal"]],
+  ["Hindware CP Fittings","Single-lever basin mixer","Nos",3900,["basin mixer","single lever","sl mixer"]],
+  ["Hindware CP Fittings","Wall mixer with bend","Nos",4600,["wall mixer"]],
+  ["Hindware CP Fittings","Pillar tap","Nos",1250,["pillar"]],
+  ["Hindware CP Fittings","Overhead shower 8\"","Nos",2100,["shower","overhead"]],
+  ["Hindware CP Fittings","Health faucet with hose","Nos",780,["health faucet","jet spray","hf"]],
+  ["Hindware CP Fittings","Angle valve","Nos",420,["angle valve","angle cock"]],
+  ["Racold","Storage geyser 15L","Nos",8900,["geyser","racold","storage"],"15"],
+  ["Racold","Storage geyser 25L","Nos",10900,["geyser","racold","storage"],"25"],
+  ["Racold","Storage geyser 6L","Nos",6200,["geyser","racold","storage"],"6"],
+  ["Racold","Instant geyser 3L","Nos",4300,["instant"],"3"],
+  ["Racold","Gas geyser 6L","Nos",5600,["gas geyser","gas"],"6"],
+  ["UltraTech BPD","Tile adhesive 20kg","Bags",420,["adhesive","tile fix","tilefixo"]],
+  ["UltraTech BPD","Wall putty 40kg","Bags",760,["putty"]],
+  ["UltraTech BPD","Waterproofing 20kg","Bags",1650,["waterproof","water proof","seal"]],
+  ["UltraTech BPD","Tile grout 1kg","Pkt",95,["grout"]],
+  ["Jaypee","PVC flush tank, dual flush","Nos",1450,["flush tank","dual flush","jaypee"]],
+  ["Jaypee","Concealed cistern","Nos",4200,["concealed","cistern"]],
+  ["Jaypee","Slim flush tank","Nos",1850,["slim"]]
+];
+const START_QTY = [14,22,30,18,60,9,26,12,40,15,70,90,8,5,11,16,7,180,240,35,300,28,6,10];
+const REORDER   = [10,12,15,10,25,6,15,8,20,10,30,40,10,12,8,8,5,100,100,30,150,20,5,8];
+const LASTSOLD  = [1,3,2,6,1,120,0,4,2,9,0,1,0,2,5,140,96,0,1,3,2,1,30,7];
+const CUSTOMERS = [
+  ["Gupta Builders","Contractor / builder","Ravi","Sector 12","09ABCPG1234K1Z5","98xxxx1101",486000,42,1000000],
+  ["Sharma Sanitary Store","Retailer","Ravi","Main Bazaar","09AAKPS5678L1Z2","98xxxx1102",612000,124,500000],
+  ["Royal Bath Studio","Retailer","Imran","Civil Lines","09AAQFR4321M1Z8","98xxxx1103",377000,136,500000],
+  ["Krishna Electricals","Retailer","Imran","Station Road","09AAJPK9876N1Z1","98xxxx1104",0,0,400000],
+  ["Om Sai Traders","Retailer","Ravi","Old City","09AACFO1122P1Z4","98xxxx1105",154000,21,300000],
+  ["Patel Construction","Contractor / builder","Imran","Ring Road","","98xxxx1106",575000,131,800000],
+  ["Balaji Tiles & Bath","Retailer","Ravi","Model Town","09AAHFB3344Q1Z6","98xxxx1107",214800,64,400000],
+  ["New Shree Hardware","Retailer","Imran","Sadar","09AAKFN5566R1Z9","98xxxx1108",96000,18,300000],
+  ["Mohan Plumbing Works","Plumber","Ravi","Shastri Nagar","","98xxxx1109",38000,12,100000],
+  ["Green Valley Homes","Contractor / builder","Imran","Bypass","09AAGCG7788S1Z3","98xxxx1110",820000,55,1500000],
+  ["Aggarwal Hardware","Retailer","Ravi","Gandhi Chowk","09AAFPA9900T1Z7","98xxxx1111",0,0,300000],
+  ["Yadav Plumbers","Plumber","Imran","Rampur","","98xxxx1112",12000,96,100000]
+].map(([name,type,salesman,town,gstin,phone,due,oldest,limit]) => ({name,type,salesman,town,gstin,phone,due,oldest,limit}));
+const CUST = n => CUSTOMERS.find(c => c.name === n);
+
+// ===================== WORKING DATA (dashboard) =====================
+function seedState(){
+  return {
+    items: ITEM_DEF.map(([brand,name,unit,rate,alias,size], i) => ({ brand, name, unit, rate, alias, size, qty: START_QTY[i], reorder: REORDER[i], lastSold: LASTSOLD[i] })),
+    nextNo: { ORD: 1009, DC: 504, PO: 226, REQ: 3 },
+    orders: [
+      { id:"ORD-1001", date:dstr(9), source:"WhatsApp", party:"Gupta Builders", by:"Ravi", lines:[{item:"Wall-hung WC, white",qty:12},{item:"Single-lever basin mixer",qty:12},{item:"Storage geyser 25L",qty:8}] },
+      { id:"ORD-1002", date:dstr(7), source:"Manual", party:"Royal Bath Studio", by:"Imran", lines:[{item:"Table-top basin, oval",qty:6},{item:"Health faucet with hose",qty:20}] },
+      { id:"ORD-1003", date:dstr(5), source:"WhatsApp", party:"Green Valley Homes", by:"Imran", lines:[{item:"Tile adhesive 20kg",qty:150},{item:"Waterproofing 20kg",qty:40},{item:"Concealed cistern",qty:10}] },
+      { id:"ORD-1004", date:dstr(4), source:"Manual", party:"Om Sai Traders", by:"Ravi", lines:[{item:"Pillar tap",qty:24},{item:"Angle valve",qty:50}] },
+      { id:"ORD-1005", date:dstr(3), source:"WhatsApp", party:"Balaji Tiles & Bath", by:"Ravi", lines:[{item:"Storage geyser 15L",qty:6},{item:"PVC flush tank, dual flush",qty:10}] },
+      { id:"ORD-1006", date:dstr(2), source:"WhatsApp", party:"Sharma Sanitary Store", by:"Ravi", lines:[{item:"Floor-mount EWC, S-trap",qty:8}], hold:"REQ-2" },
+      { id:"ORD-1007", date:dstr(1), source:"Manual", party:"New Shree Hardware", by:"Imran", lines:[{item:"Wall putty 40kg",qty:60},{item:"Tile grout 1kg",qty:100}] },
+      { id:"ORD-1008", date:dstr(0), source:"WhatsApp", party:"Mohan Plumbing Works", by:"Ravi", lines:[{item:"Overhead shower 8\"",qty:5},{item:"Health faucet with hose",qty:10}] }
+    ],
+    challans: [
+      { id:"DC-501", date:dstr(6), order:"ORD-1001", party:"Gupta Builders", lines:[{item:"Wall-hung WC, white",qty:6},{item:"Single-lever basin mixer",qty:12}], vehicle:"UP 32 AB 1234", status:"Invoiced", invoice:"SI-2381" },
+      { id:"DC-502", date:dstr(3), order:"ORD-1002", party:"Royal Bath Studio", lines:[{item:"Table-top basin, oval",qty:6},{item:"Health faucet with hose",qty:20}], vehicle:"UP 32 CD 5678", status:"Dispatched" },
+      { id:"DC-503", date:dstr(1), order:"ORD-1004", party:"Om Sai Traders", lines:[{item:"Pillar tap",qty:24}], vehicle:"", status:"Draft" }
+    ],
+    pos: [
+      { id:"PO-223", date:dstr(4), company:"UltraTech – BPD", lines:[{item:"Tile adhesive 20kg",qty:200,rec:0}], status:"Sent" },
+      { id:"PO-225", date:dstr(19), company:"Racold (Ariston)", lines:[{item:"Storage geyser 25L",qty:20,rec:0},{item:"Storage geyser 15L",qty:10,rec:4}], status:"Partly received" }
+    ],
+    reqs: [
+      { id:"REQ-1", when:dstr(1), by:"Office", what:"Send to Tally: Delivery Note", ref:"DC-502", details:"Royal Bath Studio · 2 items", status:"Pending" },
+      { id:"REQ-2", when:dstr(2), by:"Ravi", what:"Credit hold", ref:"ORD-1006", details:"Sharma Sanitary Store has bills 124 days old (₹6.12 L due)", status:"Pending" }
+    ],
+    log: []
+  };
+}
+let S;
+function load(){ try { const s = localStorage.getItem(STORE_KEY); S = s ? JSON.parse(s) : seedState(); } catch(e){ S = seedState(); } }
+function save(){ try { localStorage.setItem(STORE_KEY, JSON.stringify(S)); } catch(e){} }
+function nextId(k){ return k + "-" + (S.nextNo[k]++); }
+function log(text){ S.log.unshift({ at: new Date().toISOString(), by: userName(), text }); S.log = S.log.slice(0, 200); }
+const ITEM = n => S.items.find(i => i.name === n);
+
+// ===================== CALCULATIONS =====================
+function orderCalc(o){
+  const ch = S.challans.filter(c => c.order === o.id);
+  const sum = (item, pred) => ch.filter(pred).reduce((a,c) => a + (c.lines.find(l => l.item === item)?.qty || 0), 0);
+  const lines = o.lines.map(l => ({ ...l,
+    chal: sum(l.item, () => true),
+    disp: sum(l.item, c => c.status !== "Draft"),
+    inv:  sum(l.item, c => c.status === "Invoiced") }));
+  lines.forEach(l => l.left = Math.max(0, l.qty - l.chal));
+  const T = k => lines.reduce((a,l) => a + l[k], 0);
+  let status;
+  if (o.cancelled) status = "Cancelled";
+  else if (o.hold && S.reqs.find(r => r.id === o.hold)?.status === "Pending") status = "On hold";
+  else if (T("inv") >= T("qty")) status = "Completed";
+  else if (T("disp") > 0 && T("disp") >= T("qty")) status = "Awaiting invoice";
+  else if (T("chal") > 0) status = "Partly done";
+  else status = "New";
+  return { lines, status, open: !["Completed","Cancelled"].includes(status) };
+}
+function stockCalc(){
+  const m = {};
+  S.items.forEach(i => m[i.name] = { out: 0, reserved: 0, onPO: 0, waiting: [] });
+  S.challans.filter(c => c.status === "Dispatched").forEach(c => c.lines.forEach(l => m[l.item].out += l.qty));
+  S.orders.forEach(o => { const c = orderCalc(o); if (!c.open) return;
+    c.lines.forEach(l => { if (l.left > 0){ m[l.item].reserved += l.left; m[l.item].waiting.push(o.id); } }); });
+  S.pos.filter(p => p.status !== "Received").forEach(p => p.lines.forEach(l => m[l.item].onPO += Math.max(0, l.qty - l.rec)));
+  S.items.forEach(i => { const x = m[i.name]; x.available = i.qty - x.out; x.free = x.available - x.reserved; x.short = Math.max(0, -x.free); });
+  return m;
+}
+const STATUS_CLS = { "New":"info", "On hold":"crit", "Partly done":"warn", "Awaiting invoice":"serious", "Completed":"good", "Cancelled":"none", "Draft":"none", "Dispatched":"serious", "Invoiced":"good", "Sent":"info", "Partly received":"warn", "Received":"good", "Pending":"warn", "Approved":"good", "Rejected":"crit" };
+const st = s => `<span class="st ${STATUS_CLS[s] || "none"}">${esc(s)}</span>`;
+
+// ===================== SAMPLE SALES (as from Tally invoices) =====================
+let seed;
+const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
+function salesSample(){
+  seed = 11; const now = new Date(), trend = [];
+  for (let i = 29; i >= 0; i--){ const d = new Date(now); d.setDate(d.getDate() - i);
+    trend.push({ date: d.toISOString().slice(0,10), sales: Math.round((260000 + rnd()*240000) * (d.getDay() === 0 ? .3 : 1)) }); }
+  trend[29].sales = Math.round(trend[29].sales * .55);
+  const month = trend.slice(-now.getDate()).reduce((a,b) => a + b.sales, 0);
+  const boost = [1.9,1.4,.8,.45,.35,.3,.35,.45,.7,1.3,1.8,2.1];
+  const share = [.30,.22,.14*boost[now.getMonth()],.18,.08], tot = share.reduce((a,b)=>a+b,0);
+  const season = [];
+  for (let i = 11; i >= 0; i--){ const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    season.push({ label: d.toLocaleString("en-IN",{month:"short"}), units: Math.round((60 + rnd()*30) * boost[d.getMonth()]) }); }
+  return { trend, month, target: 13000000, invoices: 21, brands: BRANDS.map((b,i) => ({ name:b, sales: month*share[i]/tot })), season };
+}
+const SALES = salesSample();
+
+// ===================== CHARTS =====================
+function lineChart(el, rows){
+  const W = 720, H = 230, L = 54, R = 12, T = 12, B = 26, n = rows.length - 1;
+  const max = Math.max(...rows.map(r => r.sales)) * 1.08;
+  const x = i => L + i * (W - L - R) / n, y = v => T + (1 - v / max) * (H - T - B);
+  let g = "";
+  for (let k = 0; k <= 4; k++){ const v = max/1.08*k/4, yy = y(v).toFixed(1);
+    g += `<line x1="${L}" x2="${W-R}" y1="${yy}" y2="${yy}" stroke="${k?"var(--grid)":"var(--axis)"}"/><text x="${L-8}" y="${+yy+4}" font-size="11" fill="var(--muted)" text-anchor="end">${inr(v)}</text>`; }
+  g += [0,7,14,21,n].map(i => `<text x="${x(i)}" y="${H-6}" font-size="11" fill="var(--muted)" text-anchor="middle">${fmtD(rows[i].date)}</text>`).join("");
+  const pts = rows.map((r,i) => `${x(i).toFixed(1)},${y(r.sales).toFixed(1)}`).join(" ");
+  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Daily sales, last 30 days">${g}
+    <polyline points="${pts}" fill="none" stroke="var(--s1)" stroke-width="2" stroke-linejoin="round"/>
+    <line class="xh" y1="${T}" y2="${H-B}" stroke="var(--axis)" opacity="0"/><circle class="xd" r="5" fill="var(--s1)" stroke="var(--surface)" stroke-width="2" opacity="0"/>
+    <circle cx="${x(n)}" cy="${y(rows[n].sales)}" r="5" fill="var(--s1)" stroke="var(--surface)" stroke-width="2"/>
+    <rect class="hit" x="${L}" y="${T}" width="${W-L-R}" height="${H-T-B}" fill="transparent"/></svg>`;
+  const svg = el.querySelector("svg"), xh = el.querySelector(".xh"), xd = el.querySelector(".xd"), hit = el.querySelector(".hit");
+  hit.onmousemove = e => { const r = svg.getBoundingClientRect(), i = Math.max(0, Math.min(n, Math.round(((e.clientX - r.left) * W / r.width - L) / (W - L - R) * n)));
+    xh.setAttribute("x1", x(i)); xh.setAttribute("x2", x(i)); xh.setAttribute("opacity", 1);
+    xd.setAttribute("cx", x(i)); xd.setAttribute("cy", y(rows[i].sales)); xd.setAttribute("opacity", 1);
+    showTip(e, `${fmtD(rows[i].date)} · <b>${inr(rows[i].sales)}</b>${i===n?" (so far)":""}`); };
+  hit.onmouseleave = () => { hideTip(); xh.setAttribute("opacity",0); xd.setAttribute("opacity",0); };
+}
+function colChart(el, rows){
+  const W = 420, H = 200, L = 30, T = 18, B = 24, gap = 5, max = Math.max(...rows.map(r => r.units)) * 1.12;
+  const bw = (W - L) / rows.length - gap, y = v => T + (1 - v / max) * (H - T - B);
+  let g = "";
+  for (let k = 0; k <= 3; k++){ const v = max/1.12*k/3, yy = y(v).toFixed(1);
+    g += `<line x1="${L}" x2="${W}" y1="${yy}" y2="${yy}" stroke="${k?"var(--grid)":"var(--axis)"}"/><text x="${L-5}" y="${+yy+4}" font-size="10" fill="var(--muted)" text-anchor="end">${num(v)}</text>`; }
+  const peak = rows.reduce((a,b,i) => b.units > rows[a].units ? i : a, 0);
+  g += rows.map((r,i) => { const bx = L + gap/2 + i*(bw+gap), by = y(r.units);
+    return `<g class="cb" data-i="${i}"><rect x="${bx-gap/2}" y="${T}" width="${bw+gap}" height="${H-T-B}" fill="transparent"/>
+      <path d="M${bx},${H-B} V${by+4} Q${bx},${by} ${bx+4},${by} H${bx+bw-4} Q${bx+bw},${by} ${bx+bw},${by+4} V${H-B} Z" fill="var(--s1)"/>
+      <text x="${bx+bw/2}" y="${H-6}" font-size="10" fill="var(--muted)" text-anchor="middle">${r.label[0]}</text>
+      ${i===peak||i===rows.length-1?`<text x="${bx+bw/2}" y="${by-5}" font-size="10" fill="var(--ink2)" text-anchor="middle">${r.units}</text>`:""}</g>`; }).join("");
+  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Racold geyser units sold per month">${g}</svg>`;
+  el.querySelectorAll(".cb").forEach(b => { const r = rows[b.dataset.i]; b.onmousemove = e => showTip(e, `${r.label} · <b>${r.units} units</b>`); b.onmouseleave = hideTip; });
+}
+function hbars(el, rows){ const max = Math.max(...rows.map(r => r.v), 1);
+  el.innerHTML = rows.map(r => `<div class="hbar"><span>${esc(r.k)}</span><span class="t"><i style="width:${(r.v/max*100).toFixed(1)}%"></i></span><span class="n">${inr(r.v)}</span></div>`).join(""); }
+
+// ===================== RENDER: TABS =====================
+let tab = "overview", flowFilter = "";
+function renderTabs(){
+  const pend = S.reqs.filter(r => r.status === "Pending").length;
+  $("tabs").innerHTML = TABS.filter(t => t[2].includes(base())).map(t =>
+    `<button data-tab="${t[0]}" class="${t[0]===tab?"on":""}">${t[1]}${t[0]==="approvals" && pend && can("req.approve") ? `<span class="badge">${pend}</span>` : ""}</button>`).join("");
+  if (!TABS.find(t => t[0] === tab)[2].includes(base())) setTab(TABS.find(t => t[2].includes(base()))[0]);
+}
+function setTab(t){ tab = t; document.querySelectorAll(".tab").forEach(s => s.classList.toggle("hidden", s.id !== "t-" + t));
+  document.querySelectorAll("#tabs button").forEach(b => b.classList.toggle("on", b.dataset.tab === t));
+  try { localStorage.setItem("flow-tab", t); } catch(e){} }
+
+// ===================== RENDER: OVERVIEW =====================
+function renderOverview(){
+  const t = SALES.trend, ch = (t[29].sales - t[28].sales) / t[28].sales * 100;
+  $("k1").textContent = inr(t[29].sales);
+  $("k1d").innerHTML = `${SALES.invoices} bills · <span class="${ch>=0?"up":"down"}">${ch>=0?"▲":"▼"} ${Math.abs(ch).toFixed(0)}%</span> vs yesterday (so far)`;
+  const pct = SALES.month / SALES.target * 100;
+  $("k2").textContent = inr(SALES.month); $("k2d").textContent = `${pct.toFixed(0)}% of ${inr(SALES.target)} target`; $("k2m").style.width = Math.min(pct,100) + "%";
+  const open = S.orders.filter(o => mineParty(o.party) && orderCalc(o).open);
+  const stk = stockCalc(), shortOrders = open.filter(o => orderCalc(o).lines.some(l => l.left > 0 && stk[l.item].short > 0));
+  $("k3").textContent = open.length;
+  $("k3d").innerHTML = shortOrders.length ? `<span class="st crit">${shortOrders.length} short of stock</span>` : "all can be supplied";
+  const P = CUSTOMERS.filter(c => mineParty(c.name)), due = P.reduce((a,c)=>a+c.due,0), old = P.filter(c=>c.oldest>90).reduce((a,c)=>a+c.due,0);
+  $("k4").textContent = inr(due); $("k4d").innerHTML = old ? `<span class="st crit">${inr(old)} older than 90 days</span>` : "nothing over 90 days";
+  hbars($("brandbars"), SALES.brands.map(b => ({k:b.name, v:b.sales})));
+  lineChart($("trend"), SALES.trend); colChart($("season"), SALES.season);
+
+  const A = [], pend = S.reqs.filter(r => r.status === "Pending");
+  if (can("req.approve") && pend.length) A.push(`<span class="st crit">${pend.length} item(s) waiting for your approval</span>`);
+  if (shortOrders.length) A.push(`<span class="st crit">${shortOrders.length} open orders can't be fully supplied: ${shortOrders.slice(0,3).map(o=>o.id).join(", ")}</span>`);
+  const awaiting = S.challans.filter(c => c.status === "Dispatched" && mineParty(c.party));
+  if (awaiting.length) A.push(`<span class="st serious">${awaiting.length} challan(s) dispatched but not invoiced in Tally yet</span>`);
+  const drafts = S.challans.filter(c => c.status === "Draft" && mineParty(c.party));
+  if (drafts.length) A.push(`<span class="st warn">${drafts.length} challan(s) made but not dispatched</span>`);
+  S.pos.filter(p => p.status !== "Received" && daysAgo(p.date) > 14).forEach(p => A.push(`<span class="st serious">${p.id} to ${esc(p.company)} open ${daysAgo(p.date)} days</span>`));
+  P.filter(c => c.oldest > 90).forEach(c => A.push(`<span class="st warn">Chase ${esc(c.name)}: ${inr(c.due)}, oldest bill ${c.oldest} days</span>`));
+  if ([8,9,10,11].includes(new Date().getMonth())) A.push(`<span class="st info">Geyser season: Racold sales peak Dec–Jan. Check stock and POs.</span>`);
+  $("alerts").innerHTML = A.slice(0,8).map(a => `<li>${a}</li>`).join("") || `<li class="muted">Nothing urgent</li>`;
+}
+
+// ===================== RENDER: ORDERS =====================
+const FLOW = ["New","On hold","Partly done","Awaiting invoice","Completed","Cancelled"];
+function renderOrders(){
+  const all = S.orders.filter(o => mineParty(o.party)).map(o => ({ o, c: orderCalc(o) }));
+  $("flow").innerHTML = FLOW.map(s => `<div data-flow="${s}" class="${flowFilter===s?"on":""}"><b>${all.filter(x => x.c.status === s).length}</b><span>${s}</span></div>`).join("");
+  const stk = stockCalc(), q = $("of-q").value.toLowerCase(), src = $("of-src").value;
+  const rows = all.filter(({o,c}) => (!flowFilter ? c.status !== "Cancelled" : c.status === flowFilter) && (!src || o.source === src) &&
+    (!q || (o.id + o.party + o.lines.map(l=>l.item).join(" ")).toLowerCase().includes(q))).sort((a,b) => b.o.id.localeCompare(a.o.id));
+  $("orders").innerHTML = rows.map(({o,c}) => {
+    const short = c.open && c.lines.some(l => l.left > 0 && stk[l.item].short > 0);
+    const items = c.lines.map(l => { const s = stk[l.item]; let tag = "";
+      if (c.open && l.left > 0 && s.short > 0) tag = s.onPO > 0 ? ` <span class="st serious">waiting for PO</span>` : ` <span class="st crit">short, no PO</span>`;
+      return `<div>${esc(l.item)} — <b>${l.left}</b> / ${l.qty}${tag}</div>`; }).join("");
+    const acts = [];
+    if (c.open && c.status !== "On hold" && can("challan.create") && c.lines.some(l => l.left > 0)) acts.push(`<button class="btn primary" data-act="challan" data-id="${o.id}">Make challan</button>`);
+    if (c.open && can("req.create")) acts.push(`<button class="btn" data-act="to-tally-so" data-id="${o.id}">Send to Tally</button>`);
+    if (c.open && can("order.cancel")) acts.push(`<button class="btn danger" data-act="cancel" data-id="${o.id}">Cancel</button>`);
+    return `<tr class="${short?"hl":""}"><td><b>${o.id}</b><div class="small muted">${fmtD(o.date)} · ${o.source}${o.source==="WhatsApp"?" 💬":""}</div></td>
+      <td>${esc(o.party)}<div class="small muted">${esc(CUST(o.party)?.salesman || "")}</div></td>
+      <td class="small">${items}</td><td>${st(c.status)}</td><td class="n">${daysAgo(o.date)}d</td><td><div class="btns">${acts.join("")}</div></td></tr>`;
+  }).join("") || `<tr><td colspan="6" class="muted">No orders</td></tr>`;
+}
+
+// ===================== ORDER FORM =====================
+const dlg = $("dlg");
+function itemOptions(sel){ return `<option value="">Choose item…</option>` + BRANDS.map(b => `<optgroup label="${b}">` +
+  S.items.filter(i => i.brand === b).map(i => `<option ${i.name===sel?"selected":""}>${esc(i.name)}</option>`).join("") + `</optgroup>`).join(""); }
+function lineRow(item = "", qty = ""){ return `<tr><td><select class="li">${itemOptions(item)}</select></td><td style="width:90px"><input class="lq" type="number" min="1" value="${qty}"></td><td style="width:34px"><button type="button" class="btn" data-rm>✕</button></td></tr>`; }
+function custCard(name){
+  const c = CUST(name); if (!c) return "";
+  const warn = [];
+  if (c.due > c.limit) warn.push(`<span class="st crit">Over credit limit</span>`);
+  if (c.oldest > 90) warn.push(`<span class="st crit">Bills ${c.oldest} days old</span>`);
+  if (!c.gstin) warn.push(`<span class="st warn">No GSTIN in Tally</span>`);
+  return `<div class="info"><b>${esc(c.name)}</b> · ${esc(c.town)} · ${esc(c.type)}<br>GSTIN ${esc(c.gstin || "—")} · ${esc(c.phone)} · Salesman ${esc(c.salesman)}<br>
+    Due ${inr(c.due)} of ${inr(c.limit)} limit ${warn.length ? "<br>" + warn.join(" ") + `<div class="small muted">This order will wait for the owner's OK.</div>` : ""}</div>`;
+}
+function openOrderForm(pre = {}){
+  const parties = CUSTOMERS.filter(c => mineParty(c.name));
+  dlg.innerHTML = `<form method="dialog" id="of">
+    <h3>New order</h3><div class="small muted">Party details come from Tally.</div>
+    <div class="row2"><div><label class="fld">Party</label><select id="o-party" required><option value="">Choose party…</option>${parties.map(c => `<option ${c.name===pre.party?"selected":""}>${esc(c.name)}</option>`).join("")}</select></div>
+    <div><label class="fld">Source</label><select id="o-src"><option ${pre.source!=="WhatsApp"?"selected":""}>Manual</option><option ${pre.source==="WhatsApp"?"selected":""}>WhatsApp</option></select></div></div>
+    <div id="o-cust">${custCard(pre.party)}</div>
+    <label class="fld">Items</label>
+    <table class="lines"><tbody id="o-lines">${(pre.lines?.length ? pre.lines : [{}]).map(l => lineRow(l.item, l.qty)).join("")}</tbody></table>
+    <button type="button" class="btn" id="o-add" style="margin-top:6px">+ Add item</button>
+    <label class="fld">Note</label><input id="o-note" style="width:100%" value="${esc(pre.note || "")}" placeholder="Site address, delivery date…">
+    <div class="btns" style="justify-content:flex-end;margin-top:14px"><button class="btn" value="cancel" formnovalidate>Cancel</button><button class="btn primary" value="ok">Save order</button></div>
+  </form>`;
+  $("o-party").onchange = e => $("o-cust").innerHTML = custCard(e.target.value);
+  $("o-add").onclick = () => $("o-lines").insertAdjacentHTML("beforeend", lineRow());
+  $("o-lines").onclick = e => { if (e.target.closest("[data-rm]") && $("o-lines").rows.length > 1) e.target.closest("tr").remove(); };
+  $("of").onsubmit = e => {
+    if (e.submitter?.value !== "ok") return;
+    const lines = [...$("o-lines").rows].map(r => ({ item: r.querySelector(".li").value, qty: +r.querySelector(".lq").value })).filter(l => l.item && l.qty > 0);
+    if (!lines.length){ e.preventDefault(); alert("Add at least one item with a quantity."); return; }
+    const party = $("o-party").value, c = CUST(party);
+    const o = { id: nextId("ORD"), date: today(), source: $("o-src").value, party, by: userName(), lines, note: $("o-note").value };
+    if (c.due > c.limit || c.oldest > 90){
+      const r = { id: nextId("REQ"), when: today(), by: userName(), what: "Credit hold", ref: o.id,
+        details: `${party}: ${c.due > c.limit ? "over credit limit" : ""}${c.due > c.limit && c.oldest > 90 ? ", " : ""}${c.oldest > 90 ? `bills ${c.oldest} days old` : ""}`, status: "Pending" };
+      S.reqs.unshift(r); o.hold = r.id;
+    }
+    S.orders.push(o); log(`Created ${o.id} for ${party} (${o.source})`); save(); pre.onSaved?.(); renderAll(); setTab("orders");
+  };
+  dlg.showModal();
+}
+
+// ===================== CHALLAN FORM =====================
+function openChallanForm(orderId){
+  const o = S.orders.find(x => x.id === orderId), c = orderCalc(o), stk = stockCalc();
+  const lines = c.lines.filter(l => l.left > 0);
+  dlg.innerHTML = `<form method="dialog" id="cf">
+    <h3>Delivery challan for ${o.id}</h3><div class="small muted">${esc(o.party)} · You can't send more than what's left on the order or free in stock.</div>
+    <table class="lines" style="margin-top:10px"><thead><tr><th>Item</th><th class="n">Left on order</th><th class="n">In godown</th><th class="n">Send now</th></tr></thead><tbody>
+    ${lines.map(l => { const avail = Math.max(0, stk[l.item].available); const def = Math.min(l.left, avail);
+      return `<tr><td>${esc(l.item)}</td><td class="n">${l.left}</td><td class="n">${avail < l.left ? `<span class="st crit">${avail}</span>` : avail}</td>
+      <td style="width:90px"><input type="number" min="0" max="${Math.min(l.left, avail)}" value="${def}" data-item="${esc(l.item)}"></td></tr>`; }).join("")}
+    </tbody></table>
+    <div class="row2"><div><label class="fld">Vehicle no.</label><input id="c-veh" style="width:100%" placeholder="UP 32 AB 1234"></div>
+    <div><label class="fld">Driver / note</label><input id="c-note" style="width:100%"></div></div>
+    <div class="btns" style="justify-content:flex-end;margin-top:14px"><button class="btn" value="cancel" formnovalidate>Cancel</button><button class="btn primary" value="ok">Make challan</button></div>
+  </form>`;
+  $("cf").onsubmit = e => {
+    if (e.submitter?.value !== "ok") return;
+    const L = [...dlg.querySelectorAll("input[data-item]")].map(i => ({ item: i.dataset.item, qty: +i.value })).filter(l => l.qty > 0);
+    if (!L.length){ e.preventDefault(); alert("Nothing to send. Enter a quantity for at least one item."); return; }
+    const ch = { id: nextId("DC"), date: today(), order: o.id, party: o.party, lines: L, vehicle: $("c-veh").value, note: $("c-note").value, status: "Draft" };
+    S.challans.push(ch); log(`Made ${ch.id} for ${o.id}`); save(); renderAll(); setTab("challans");
+  };
+  dlg.showModal();
+}
+
+// ===================== RENDER: CHALLANS =====================
+function renderChallans(){
+  const f = $("cf-st").value;
+  const rows = S.challans.filter(c => mineParty(c.party) && (!f || c.status === f)).sort((a,b) => b.id.localeCompare(a.id));
+  $("challans").innerHTML = rows.map(c => {
+    const acts = [`<button class="btn" data-act="print" data-id="${c.id}">Print</button>`, `<button class="btn" data-act="wa-share" data-id="${c.id}">WhatsApp</button>`];
+    if (c.status === "Draft" && can("challan.dispatch")) acts.unshift(`<button class="btn primary" data-act="dispatch" data-id="${c.id}">Mark dispatched</button>`);
+    if (c.status !== "Invoiced" && can("req.create")) acts.push(`<button class="btn" data-act="to-tally-dn" data-id="${c.id}">Send to Tally</button>`);
+    if (c.status === "Dispatched" && can("challan.create")) acts.push(`<button class="btn" data-act="invoice" data-id="${c.id}">Demo: invoice made</button>`);
+    return `<tr><td><b>${c.id}</b><div class="small muted">${fmtD(c.date)}</div></td><td>${c.order}<div class="small muted">${esc(c.party)}</div></td>
+      <td class="small">${c.lines.map(l => `${esc(l.item)} × ${l.qty}`).join("<br>")}</td><td class="small">${esc(c.vehicle || "—")}</td>
+      <td>${st(c.status)}${c.invoice ? `<div class="small muted">${c.invoice}</div>` : ""}</td><td><div class="btns">${acts.join("")}</div></td></tr>`;
+  }).join("") || `<tr><td colspan="6" class="muted">No challans</td></tr>`;
+}
+function printChallan(id){
+  const c = S.challans.find(x => x.id === id), p = CUST(c.party);
+  $("printarea").innerHTML = `<h2 style="margin:0">DELIVERY CHALLAN</h2><p>Flow (dealer: Hindware · Racold · UltraTech BPD · Jaypee)</p>
+    <p><b>Challan:</b> ${c.id} &nbsp; <b>Date:</b> ${fmtD(c.date)} &nbsp; <b>Order:</b> ${c.order}<br><b>To:</b> ${esc(c.party)}, ${esc(p?.town)} &nbsp; <b>GSTIN:</b> ${esc(p?.gstin || "—")}<br><b>Vehicle:</b> ${esc(c.vehicle || "—")}</p>
+    <table style="border-collapse:collapse;width:100%"><tr><th>#</th><th>Item</th><th>Qty</th><th>Unit</th></tr>
+    ${c.lines.map((l,i) => `<tr><td>${i+1}</td><td>${esc(l.item)}</td><td>${l.qty}</td><td>${ITEM(l.item).unit}</td></tr>`).join("")}</table>
+    <p style="margin-top:40px">Received in good condition: ____________________ &nbsp;&nbsp;&nbsp; For Flow: ____________________</p>`;
+  print();
+}
+
+// ===================== RENDER: PURCHASE =====================
+function suggestions(){
+  const stk = stockCalc(), by = {};
+  S.items.forEach(i => { const s = stk[i.name];
+    const forOrders = Math.max(0, s.reserved - Math.max(0, s.available) - s.onPO);
+    const afterAll = s.available - s.reserved + s.onPO + forOrders;
+    const topUp = Math.max(0, i.reorder - afterAll);
+    const need = forOrders + topUp;
+    if (need > 0) (by[COMPANY[i.brand]] ||= []).push({ item: i.name, unit: i.unit, forOrders, topUp, need, waiting: s.waiting, free: s.free, onPO: s.onPO });
+  });
+  return by;
+}
+function renderPurchase(){
+  const sg = suggestions();
+  $("suggest").innerHTML = Object.entries(sg).map(([co, rows]) => `<div class="wa"><div class="head"><b>${esc(co)}</b>
+    ${can("po.create") ? `<button class="btn primary" data-act="make-po" data-co="${esc(co)}">Create PO draft</button>` : ""}</div>
+    <div class="scroll"><table><thead><tr><th>Item</th><th class="n">Free now</th><th class="n">On PO</th><th class="n">For waiting orders</th><th class="n">To refill stock</th><th class="n">Order qty</th></tr></thead><tbody>
+    ${rows.map(r => `<tr class="${r.forOrders ? "hl" : ""}"><td>${esc(r.item)}${r.forOrders ? `<div class="small muted">Waiting: ${r.waiting.join(", ")}</div>` : ""}</td>
+      <td class="n">${r.free < 0 ? `<span class="st crit">${r.free}</span>` : r.free}</td><td class="n">${r.onPO || "–"}</td><td class="n">${r.forOrders || "–"}</td><td class="n">${r.topUp || "–"}</td>
+      <td class="n"><input type="number" min="0" value="${r.need}" style="width:80px" data-po-item="${esc(r.item)}" data-co="${esc(co)}"> ${r.unit}</td></tr>`).join("")}
+    </tbody></table></div></div>`).join("") || `<p class="muted">Nothing to order right now.</p>`;
+
+  const stk = stockCalc();
+  $("pos").innerHTML = S.pos.slice().sort((a,b) => b.id.localeCompare(a.id)).map(p => {
+    const waiting = [...new Set(p.lines.flatMap(l => stk[l.item].short > 0 ? stk[l.item].waiting : []))];
+    const open = p.status !== "Received", age = daysAgo(p.date);
+    const acts = [];
+    if (p.status === "Draft" && can("po.create")) acts.push(`<button class="btn primary" data-act="po-sent" data-id="${p.id}">Mark sent to company</button>`);
+    if (["Sent","Partly received"].includes(p.status) && can("po.receive")) acts.push(`<button class="btn" data-act="po-recv" data-id="${p.id}">Demo: goods received</button>`);
+    if (open && can("req.create")) acts.push(`<button class="btn" data-act="to-tally-po" data-id="${p.id}">Send to Tally</button>`);
+    return `<tr class="${open && waiting.length ? "hl" : ""}"><td><b>${p.id}</b><div class="small muted">${fmtD(p.date)}</div></td><td>${esc(p.company)}</td>
+      <td class="small">${p.lines.map(l => `${esc(l.item)} — ${l.rec} / ${l.qty}`).join("<br>")}</td>
+      <td class="small">${open && waiting.length ? `<span class="st crit">${waiting.join(", ")}</span>` : "–"}</td><td>${st(p.status)}</td>
+      <td class="n">${open ? (age > 14 ? `<span class="st serious">${age}</span>` : age) : "–"}</td><td><div class="btns">${acts.join("")}</div></td></tr>`;
+  }).join("") || `<tr><td colspan="7" class="muted">No purchase orders</td></tr>`;
+}
+
+// ===================== RENDER: STOCK =====================
+function renderStock(){
+  const el = $("sf-brand"); if (!el.options.length) el.innerHTML = `<option value="">All brands</option>` + BRANDS.map(b => `<option>${b}</option>`).join("");
+  const stk = stockCalc(), I = S.items;
+  $("s1").textContent = inr(I.reduce((a,i) => a + i.qty * i.rate, 0)); $("s1d").textContent = `${I.length} items`;
+  $("s2").textContent = I.filter(i => stk[i.name].short > 0).length;
+  $("s3").textContent = I.filter(i => stk[i.name].free < i.reorder).length;
+  $("s4").textContent = I.filter(i => i.lastSold >= 90).length;
+  const q = $("sf-q").value.toLowerCase(), b = $("sf-brand").value, v = $("sf-view").value;
+  $("stock").innerHTML = I.filter(i => (!b || i.brand === b) && (!q || i.name.toLowerCase().includes(q)) &&
+    (!v || (v === "short" && stk[i.name].short > 0) || (v === "reorder" && stk[i.name].free < i.reorder) || (v === "dead" && i.lastSold >= 90)))
+    .map(i => { const s = stk[i.name];
+      return `<tr class="${s.short ? "hl" : ""}"><td>${esc(i.name)}${can("view.value") ? `<div class="small muted">${inr(i.rate)} / ${i.unit}</div>` : ""}</td><td><span class="tag">${esc(i.brand)}</span></td>
+      <td class="n">${num(i.qty)}</td><td class="n">${s.out || "–"}</td><td class="n">${s.reserved || "–"}</td>
+      <td class="n">${s.free < 0 ? `<span class="st crit">${s.free}</span>` : s.free < i.reorder ? `<span class="st warn">${s.free}</span>` : s.free}</td>
+      <td class="n">${s.onPO || "–"}</td><td class="n">${i.reorder}</td>
+      <td class="n">${i.lastSold >= 90 ? `<span class="st serious">${i.lastSold}d</span>` : i.lastSold ? i.lastSold + "d" : "today"}</td>
+      <td>${can("req.create") ? `<button class="btn" data-act="item-req" data-id="${esc(i.name)}">Request change</button>` : ""}</td></tr>`; }).join("");
+}
+
+// ===================== RENDER: PARTIES / ACCOUNTS =====================
+function renderParties(){
+  const P = CUSTOMERS.filter(c => mineParty(c.name)), B = [0,0,0,0];
+  P.forEach(c => { if (c.due) B[c.oldest <= 30 ? 0 : c.oldest <= 60 ? 1 : c.oldest <= 90 ? 2 : 3] += c.due; });
+  hbars($("ageing"), ["0–30 days","31–60 days","61–90 days","90+ days"].map((k,i) => ({k, v:B[i]})));
+  const q = $("pf-q").value.toLowerCase();
+  $("parties").innerHTML = P.filter(c => !q || (c.name + c.town).toLowerCase().includes(q)).sort((a,b) => b.due - a.due).map(c =>
+    `<tr><td>${esc(c.name)}<div class="small muted">${esc(c.town)} · ${esc(c.type)}</div></td><td>${esc(c.salesman)}</td>
+    <td class="small">${c.gstin ? esc(c.gstin) : `<span class="st warn">No GSTIN</span>`}<br>${esc(c.phone)}</td>
+    <td class="n">${c.due ? inr(c.due) : "–"}</td>
+    <td class="n">${!c.oldest ? "–" : c.oldest > 90 ? `<span class="st crit">${c.oldest}d</span>` : c.oldest > 60 ? `<span class="st warn">${c.oldest}d</span>` : c.oldest + "d"}</td>
+    <td class="n">${c.due > c.limit ? `<span class="st crit">${inr(c.limit)}</span>` : inr(c.limit)}</td>
+    <td>${can("req.create") ? `<button class="btn" data-act="party-req" data-id="${esc(c.name)}">Request change</button>` : ""}</td></tr>`).join("");
+}
+function renderAccounts(){
+  $("a1").textContent = inr(184500); $("a2").textContent = inr(2265000); $("a3").textContent = inr(5100000); $("a4").textContent = inr(290000);
+  $("payables").innerHTML = [["Hindware (Brilloca)",2840000,"05 Dec"],["Racold (Ariston)",1460000,"10 Dec"],["UltraTech – BPD",612000,"30 Nov"],["Jaypee",188000,"15 Dec"]]
+    .map(p => `<tr><td>${p[0]}</td><td class="n">${inr(p[1])}</td><td class="n">${p[2]}</td></tr>`).join("");
+  $("editlog").innerHTML = [["11:42","Sales SI-2392","Rate changed ₹3,900 → ₹3,750","Pooja"],["10:15","Receipt R-881","Amount changed ₹50,000 → ₹45,000","Sunil"],["Yesterday","Sales SI-2377","Deleted","Admin"],["Yesterday","Party Om Sai Traders","Credit limit changed","Admin"]]
+    .map(r => `<tr><td class="small">${r[0]}</td><td>${r[1]}</td><td class="small">${r[2]}</td><td>${r[3]}</td></tr>`).join("");
+}
+
+// ===================== RENDER: APPROVALS / RULES =====================
+function renderApprovals(){
+  const list = can("view.all") ? S.reqs : S.reqs.filter(r => r.by === me());
+  $("reqs").innerHTML = list.map(r => `<tr><td class="small">${fmtD(r.when)}</td><td>${esc(r.by)}</td><td>${esc(r.what)}<div class="small muted">${esc(r.ref)}</div></td>
+    <td class="small">${esc(r.details)}</td><td>${st(r.status)}${r.status === "Approved" && r.what.startsWith("Send to Tally") ? `<div class="small muted">Queued for Tally (sample: not sent)</div>` : ""}</td>
+    <td>${r.status === "Pending" ? (can("req.approve") ? `<div class="btns"><button class="btn primary" data-act="approve" data-id="${r.id}">Approve</button><button class="btn danger" data-act="reject" data-id="${r.id}">Reject</button></div>` : `<span class="small muted">Waiting for owner</span>`) : ""}</td></tr>`).join("")
+    || `<tr><td colspan="6" class="muted">Nothing here</td></tr>`;
+}
+function renderRules(){
+  const R = ["owner","office","dispatch","sales"], N = { owner:"Owner", office:"Office / billing", dispatch:"Godown", sales:"Salesman" };
+  $("rulestable").innerHTML = `<thead><tr><th>Action</th>${R.map(r => `<th style="text-align:center">${N[r]}</th>`).join("")}</tr></thead><tbody>` +
+    ACTIONS.map(a => `<tr><td>${a[1]}</td>${R.map(r => `<td style="text-align:center">${a[2].includes(r) ? "✓" : "<span class='muted'>–</span>"}</td>`).join("")}</tr>`).join("") +
+    `<tr><td>Tabs they see</td>${R.map(r => `<td class="small" style="text-align:center">${TABS.filter(t => t[2].includes(r)).map(t => t[1]).join(", ")}</td>`).join("")}</tr></tbody>`;
+}
+
+function renderAll(){
+  renderTabs(); setTab(tab);
+  document.querySelectorAll("[data-perm]").forEach(el => el.classList.toggle("hidden", !can(el.dataset.perm)));
+  renderOverview(); renderOrders(); renderChallans(); renderPurchase(); renderStock(); renderParties(); renderAccounts(); renderApprovals(); renderRules();
+  $("asof").textContent = "Tally last synced " + new Date().toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit"});
+}
+
+// ===================== WHATSAPP PARSER =====================
+const norm = s => " " + s.toLowerCase().replace(/[^a-z0-9"\s.-]/g, " ").replace(/\s+/g, " ").trim() + " ";
+const GENERIC = new Set(["store","stores","traders","trader","works","the","and","bath","hardware","homes","construction","builders","tiles","sanitary","electricals","plumbers","plumbing","studio","new"]);
+function matchParty(text){
+  const t = norm(text); let best = null, bs = 0;
+  CUSTOMERS.forEach(c => { const toks = c.name.toLowerCase().replace(/&/g," ").split(/\s+/).filter(w => w.length > 2);
+    let s = 0; toks.forEach(w => { if (t.includes(" " + w + " ") || t.includes(" " + w)) s += GENERIC.has(w) ? 0.4 : 2; });
+    if (s > bs){ bs = s; best = c.name; } });
+  return bs >= 2 ? best : "";
+}
+function matchItem(line){
+  const t = norm(line); let best = null, bs = 0;
+  S.items.forEach(i => { let s = 0;
+    i.alias.forEach(a => { if (t.includes(a)) s += 2 + a.length / 20; });
+    if (i.size && new RegExp(`(^|\\D)${i.size}\\s*(l|ltr|ltrs|litre|liter|lit)\\b`).test(t)) s += 2.5;
+    else if (i.size && /(\d+)\s*(l|ltr|ltrs|litre|liter|lit)\b/.test(t)) s -= 2;
+    if (s > bs){ bs = s; best = i.name; } });
+  return bs >= 2 ? best : "";
+}
+function parseQty(line){
+  let t = line.toLowerCase().replace(/\d+(\.\d+)?\s*(l|ltr|ltrs|litre|liter|lit|kg|kgs|mm|inch|")(?![a-z])/g, " ");
+  const m = t.match(/(\d+)\s*(nos|no|pcs|pc|piece|pieces|bags?|pkt|packets?|box|qty|units?)\b/) || t.match(/(?:qty|x|-|=|:)\s*(\d+)/) || t.match(/(\d+)(?!.*\d)/);
+  return m ? +m[1] : 0;
+}
+function splitMessages(text){
+  const re = /^\[?(\d{1,2}[\/.-]\d{1,2}[\/.-]\d{2,4}),?\s+(\d{1,2}:\d{2}(?:\s?[ap]m)?)\]?\s*(?:-\s*)?([^:\n]{1,40}):\s*/gim;
+  const out = []; let m, last = null;
+  while ((m = re.exec(text))){ if (last) last.body = text.slice(last.end, m.index); last = { when: m[1] + " " + m[2], sender: m[3].trim(), end: re.lastIndex }; out.push(last); }
+  if (last) last.body = text.slice(last.end);
+  if (!out.length) return [{ when: "", sender: "", body: text }];
+  return out;
+}
+let WA = [];
+function readWhatsApp(text){
+  WA = splitMessages(text).map(m => {
+    const lines = m.body.split(/\n|,(?=\s*\D)/).map(s => s.trim()).filter(Boolean);
+    const party = matchParty(m.body);
+    const items = [], skipped = [];
+    lines.forEach(l => { const it = matchItem(l), q = parseQty(l);
+      if (it && q) items.push({ item: it, qty: q, raw: l });
+      else if (!party || !norm(l).includes(norm(party).trim().split(" ")[0])) skipped.push(l); });
+    return { ...m, party, items, skipped };
+  }).filter(m => m.items.length || m.party);
+  renderWA();
+}
+function renderWA(){
+  $("wa-out").innerHTML = WA.map((m, k) => `<div class="wa">
+    <div class="head"><div><b>${m.party ? esc(m.party) : `<span class="st warn">Party not found</span>`}</b>
+      <div class="small muted">${esc(m.sender || "Pasted")} ${m.when ? "· " + esc(m.when) : ""}</div></div>
+      ${m.done ? `<span class="st good">Order ${m.done} created</span>` : `<button class="btn primary" data-act="wa-create" data-k="${k}">Check &amp; create order</button>`}</div>
+    <pre>${esc(m.body.trim())}</pre>
+    ${m.items.length ? `<table><thead><tr><th>Matched item (from Tally)</th><th class="n">Qty</th><th>From text</th></tr></thead><tbody>${m.items.map(i =>
+      `<tr><td>${esc(i.item)}</td><td class="n">${i.qty}</td><td class="small muted">${esc(i.raw)}</td></tr>`).join("")}</tbody></table>` : ""}
+    ${m.skipped.length ? `<div class="small" style="margin-top:6px"><span class="st warn">Not understood:</span> ${m.skipped.map(esc).join(" · ")}</div>` : ""}
+  </div>`).join("") || (WA.read ? `<p class="muted">No orders found in that text.</p>` : "");
+}
+const WA_SAMPLE = `[26/11/26, 10:14] Ravi Sales: Gupta Builders site Sector 12
+Wall hung WC white - 6 nos
+Single lever basin mixer 6
+Racold 25 ltr geyser 4 pcs
+Tile adhesive 20kg 40 bags
+Jaypee dual flush tank 6
+[26/11/26, 11:02] Imran: Royal bath ka order
+table top basin 3
+health faucet 10
+pillar tap 8
+kal tak bhejna hai
+[26/11/26, 11:40] Ravi Sales: Krishna Electricals - instant geyser 3 ltr qty 5, angle valve 20`;
+
+// ===================== CHANGE REQUESTS =====================
+function openReqForm(what, ref, hint){
+  dlg.innerHTML = `<form method="dialog" id="rf"><h3>${esc(what)}</h3><div class="small muted">${esc(ref)} · The owner must approve before anything changes in Tally.</div>
+    <label class="fld">What should change, and why</label><textarea id="r-det" rows="3" style="width:100%" required placeholder="${esc(hint)}"></textarea>
+    <div class="btns" style="justify-content:flex-end;margin-top:14px"><button class="btn" value="cancel" formnovalidate>Cancel</button><button class="btn primary" value="ok">Send for approval</button></div></form>`;
+  $("rf").onsubmit = e => { if (e.submitter?.value !== "ok") return;
+    addReq(what, ref, $("r-det").value); };
+  dlg.showModal();
+}
+function addReq(what, ref, details){
+  if (S.reqs.some(r => r.ref === ref && r.what === what && r.status === "Pending")) { alert("This is already waiting for approval."); return; }
+  S.reqs.unshift({ id: nextId("REQ"), when: today(), by: userName(), what, ref, details, status: "Pending" });
+  log(`Requested: ${what} (${ref})`); save(); renderAll();
+}
+
+// ===================== EVENTS =====================
+document.body.addEventListener("click", e => {
+  const t = e.target.closest("[data-tab]"); if (t && t.closest("#tabs")) return setTab(t.dataset.tab);
+  const f = e.target.closest("[data-flow]"); if (f){ flowFilter = flowFilter === f.dataset.flow ? "" : f.dataset.flow; return renderOrders(); }
+  const b = e.target.closest("[data-act]"); if (!b) return;
+  const id = b.dataset.id, A = b.dataset.act;
+  if (A === "new-order") openOrderForm();
+  if (A === "challan") openChallanForm(id);
+  if (A === "cancel" && confirm(`Cancel ${id}? Anything already on a challan stays.`)){ S.orders.find(o => o.id === id).cancelled = true; log(`Cancelled ${id}`); save(); renderAll(); }
+  if (A === "dispatch"){ S.challans.find(c => c.id === id).status = "Dispatched"; log(`Dispatched ${id}`); save(); renderAll(); }
+  if (A === "invoice"){ const c = S.challans.find(x => x.id === id); c.status = "Invoiced"; c.invoice = "SI-" + (2393 + S.challans.filter(x => x.invoice).length);
+    c.lines.forEach(l => ITEM(l.item).qty -= l.qty); log(`Tally invoice ${c.invoice} matched to ${id}`); save(); renderAll(); }
+  if (A === "print") printChallan(id);
+  if (A === "wa-share"){ const c = S.challans.find(x => x.id === id);
+    const msg = `Delivery challan ${c.id} (${fmtD(c.date)})\n${c.party}\n` + c.lines.map(l => `• ${l.item} × ${l.qty}`).join("\n") + (c.vehicle ? `\nVehicle: ${c.vehicle}` : "");
+    window.open("https://wa.me/?text=" + encodeURIComponent(msg), "_blank", "noopener"); }
+  if (A === "to-tally-so"){ const o = S.orders.find(x => x.id === id); addReq("Send to Tally: Sales Order", id, `${o.party} · ${o.lines.length} item(s)`); }
+  if (A === "to-tally-dn"){ const c = S.challans.find(x => x.id === id); addReq("Send to Tally: Delivery Note", id, `${c.party} · ${c.lines.length} item(s)`); }
+  if (A === "to-tally-po"){ const p = S.pos.find(x => x.id === id); addReq("Send to Tally: Purchase Order", id, `${p.company} · ${p.lines.length} item(s)`); }
+  if (A === "item-req") openReqForm("Change item in Tally", id, "e.g. reorder level 10 → 20, or new rate");
+  if (A === "party-req") openReqForm("Change party in Tally", id, "e.g. new phone, GSTIN, credit limit");
+  if (A === "approve" || A === "reject"){ const r = S.reqs.find(x => x.id === id); r.status = A === "approve" ? "Approved" : "Rejected"; log(`${r.status} ${r.id}: ${r.what} (${r.ref})`); save(); renderAll(); }
+  if (A === "make-po"){ const co = b.dataset.co;
+    const lines = [...document.querySelectorAll(`[data-po-item][data-co="${CSS.escape(co)}"]`)].map(i => ({ item: i.dataset.poItem, qty: +i.value, rec: 0 })).filter(l => l.qty > 0);
+    if (!lines.length) return alert("Enter a quantity for at least one item.");
+    const p = { id: nextId("PO"), date: today(), company: co, lines, status: "Draft" }; S.pos.push(p); log(`Created ${p.id} for ${co}`); save(); renderAll(); }
+  if (A === "po-sent"){ S.pos.find(p => p.id === id).status = "Sent"; save(); renderAll(); }
+  if (A === "po-recv"){ const p = S.pos.find(x => x.id === id);
+    p.lines.forEach(l => { const add = l.qty - l.rec; l.rec = l.qty; ITEM(l.item).qty += add; }); p.status = "Received"; log(`Goods received on ${id}`); save(); renderAll(); }
+  if (A === "wa-create"){ const m = WA[+b.dataset.k];
+    openOrderForm({ party: m.party, source: "WhatsApp", lines: m.items, note: m.sender ? `From ${m.sender} on WhatsApp ${m.when}` : "From WhatsApp",
+      onSaved: () => { m.done = S.orders[S.orders.length - 1].id; renderWA(); } }); }
+});
+$("role").onchange = e => { role = e.target.value; try { localStorage.setItem("flow-role", role); } catch(x){} flowFilter = ""; renderAll(); };
+["of-q","of-src"].forEach(id => $(id).addEventListener("input", renderOrders));
+$("cf-st").addEventListener("input", renderChallans);
+["sf-q","sf-brand","sf-view"].forEach(id => $(id).addEventListener("input", renderStock));
+$("pf-q").addEventListener("input", renderParties);
+$("wa-read").onclick = () => { WA.read = true; readWhatsApp($("wa-text").value); };
+$("wa-sample").onclick = () => { $("wa-text").value = WA_SAMPLE; readWhatsApp(WA_SAMPLE); };
+$("wa-file").onchange = async e => { const f = e.target.files[0]; if (!f) return; const txt = await f.text();
+  const lines = txt.split("\n"); $("wa-text").value = lines.slice(-400).join("\n"); readWhatsApp($("wa-text").value); };
+$("reset").onclick = () => { if (confirm("Reset all sample orders, challans and POs?")){ S = seedState(); save(); WA = []; renderWA(); renderAll(); } };
+dlg.addEventListener("click", e => { if (e.target === dlg) dlg.close(); });
+
+// ===================== START =====================
+load();
+try { const r = localStorage.getItem("flow-role"); if (r && $("role").querySelector(`option[value="${r}"]`)) { role = r; $("role").value = r; } } catch(e){}
+try { const t = localStorage.getItem("flow-tab"); if (t) tab = t; } catch(e){}
+renderAll();
+</script>
+</body>
+</html>
