@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Tally Read Test</title>
+<style>
+  :root{--bg:#f9f9f7;--ink:#0b0b0b;--muted:#52514e;--ok:#006300;--bad:#c0362c;--card:#fff;--line:#e1e0d9}
+  @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#0d0d0d;--ink:#f0efec;--muted:#c3c2b7;--ok:#4cc27d;--bad:#f0716a;--card:#1a1a19;--line:#2c2c2a}}
+  :root[data-theme="dark"]{--bg:#0d0d0d;--ink:#f0efec;--muted:#c3c2b7;--ok:#4cc27d;--bad:#f0716a;--card:#1a1a19;--line:#2c2c2a}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,sans-serif}
+  main{max-width:720px;margin:0 auto;padding:24px 16px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-top:12px}
+  button{font:inherit;padding:8px 14px;border-radius:8px;border:1px solid var(--line);background:#2a78d6;color:#fff;cursor:pointer}
+  pre{white-space:pre-wrap;word-break:break-word;font-size:13px;color:var(--muted)}
+  .ok{color:var(--ok)} .bad{color:var(--bad)}
+</style>
+</head>
+<body>
+<main>
+  <h1 style="margin:0">Tally read test</h1>
+  <p style="color:var(--muted)">Checks whether this browser can <b>read</b> from Tally Prime on this computer (localhost:9000). It only asks for the list of open companies. It cannot change anything in Tally.</p>
+  <button id="go">Run read-only test</button>
+  <div class="card"><div id="result">Not run yet.</div><pre id="raw"></pre></div>
+</main>
+<script>
+// Read-only: the only request this page ever sends is an Export of the company list.
+const REQ = '<ENVELOPE><HEADER><VERSION>1</VERSION><TALLYREQUEST>Export</TALLYREQUEST><TYPE>Collection</TYPE><ID>FlowCompanies</ID></HEADER>' +
+  '<BODY><DESC><STATICVARIABLES><SVEXPORTFORMAT>$$SysName:XML</SVEXPORTFORMAT></STATICVARIABLES><TDL><TDLMESSAGE>' +
+  '<COLLECTION NAME="FlowCompanies"><TYPE>Company</TYPE><FETCH>NAME, STARTINGFROM</FETCH></COLLECTION></TDLMESSAGE></TDL></DESC></BODY></ENVELOPE>';
+if (!/<TALLYREQUEST>Export<\/TALLYREQUEST>/.test(REQ) || /Import|ACTION=/i.test(REQ)) throw new Error("blocked");
+const out = document.getElementById("result"), raw = document.getElementById("raw");
+document.getElementById("go").onclick = async () => {
+  out.textContent = "Asking Tally…"; raw.textContent = "";
+  try {
+    const r = await fetch("http://localhost:9000", { method: "POST", body: REQ, headers: { "Content-Type": "text/plain" } });
+    const t = await r.text();
+    const names = [...t.matchAll(/<COMPANY NAME="([^"]*)"/g)].map(m => m[1]);
+    out.innerHTML = `<b class="ok">PASS: this browser can read from Tally.</b><br>Companies open: ${names.length ? names.map(n => n.replace(/[<>&]/g, "")).join(", ") : "(none found)"}`;
+    raw.textContent = t.slice(0, 1500);
+  } catch (e) {
+    out.innerHTML = `<b class="bad">BLOCKED: the browser could not read Tally's answer.</b><br>${String(e).replace(/[<>&]/g, "")}`;
+  }
+};
+</script>
+</body>
+</html>
